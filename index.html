@@ -710,19 +710,31 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
   <div class="modal-box">
     <div class="modal-title">⚙ EVCharge Pro Settings</div>
 
+    <!-- OCM Key -->
     <div class="modal-section">
-      <div class="modal-section-title">OPENCHARGEMAP API KEY (optional — improves rate limits)</div>
-      <input class="modal-input" type="text" id="ocmKeyInput" placeholder="Leave blank to use anonymous access"/>
+      <div class="modal-section-title">OPENCHARGEMAP API KEY</div>
+      <!-- Status row: shows whether key is set without revealing it -->
+      <div id="ocmKeyStatus" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 10px;background:var(--card);border:1px solid var(--b);border-radius:5px;font-size:11px"></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input class="modal-input" type="password" id="ocmKeyInput"
+          placeholder="Paste new key to override…"
+          style="flex:1;margin-bottom:0"
+          autocomplete="off" autocorrect="off" spellcheck="false"/>
+        <button class="modal-btn" onclick="clearOcmKey()" style="white-space:nowrap;flex-shrink:0">✕ Clear</button>
+      </div>
       <div class="hint-box" style="margin-top:6px">
-        Free key at <a href="https://openchargemap.org/site/profile/register" target="_blank">openchargemap.org/register</a> —
-        anonymous access works but may be rate-limited.
+        Free key at <a href="https://openchargemap.org/site/profile/register" target="_blank">openchargemap.org/register</a>.
+        If deployed via GitHub Actions your key is pre-loaded from repo secrets — you only need to enter one here to override it.
       </div>
     </div>
 
+    <!-- Firebase -->
     <div class="modal-section">
-      <div class="modal-section-title">FIREBASE CONFIGURATION (enables community pricing database)</div>
-      <textarea class="modal-textarea" id="fbConfigInput" placeholder='Paste your Firebase config JSON here, e.g.:
-{
+      <div class="modal-section-title">FIREBASE CONFIGURATION</div>
+      <div id="fbStatus" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 10px;background:var(--card);border:1px solid var(--b);border-radius:5px;font-size:11px"></div>
+      <details style="margin-bottom:8px">
+        <summary style="font-size:11px;color:var(--m2);cursor:pointer;user-select:none">Override Firebase config (paste new JSON to replace)</summary>
+        <textarea class="modal-textarea" id="fbConfigInput" style="margin-top:6px" placeholder='{
   "apiKey": "...",
   "authDomain": "...",
   "projectId": "...",
@@ -730,13 +742,12 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
   "messagingSenderId": "...",
   "appId": "..."
 }'></textarea>
+        <button class="modal-btn" onclick="clearFbConfig()" style="margin-top:4px">✕ Clear saved config</button>
+      </details>
       <div class="hint-box">
-        <b>Setup (free):</b><br/>
-        1. Go to <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a><br/>
-        2. Create project → Add web app → copy config<br/>
-        3. Enable Firestore in test mode<br/>
-        4. Paste config above and save<br/><br/>
-        Without Firebase, pricing is saved locally and not shared.
+        <b>Setup (free):</b> <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a>
+        → Create project → Add web app → Firestore in test mode → copy config JSON.<br/><br/>
+        If deployed via GitHub Actions, Firebase is pre-configured from repo secrets.
       </div>
       <button class="modal-btn" onclick="testFirebase()" style="margin-top:8px;width:100%">🔌 Test Firebase Connection</button>
       <div id="fbTestResult" style="margin-top:6px;font-size:11px"></div>
@@ -1195,26 +1206,58 @@ async function testFirebase() {
 
 function openSettings() {
   document.getElementById('settingsModal').style.display = 'grid';
-  document.getElementById('ocmKeyInput').value = S.ocmKey;
-  const fb = localStorage.getItem('ev_fb_config') || '';
-  document.getElementById('fbConfigInput').value = fb;
+  // Clear the override inputs — never pre-fill them with actual key values
+  document.getElementById('ocmKeyInput').value = '';
+  document.getElementById('fbConfigInput').value = '';
+  // Show status badges instead
+  const ocmSet = !!S.ocmKey;
+  const source = window.EVCHARGE_CONFIG?.ocmKey ? 'via deploy secrets' : 'manual entry';
+  document.getElementById('ocmKeyStatus').innerHTML = ocmSet
+    ? `<span style="color:var(--a)">✓ Key active</span><span style="color:var(--m);font-size:10px">(${source} — not shown for security)</span>`
+    : `<span style="color:var(--w)">⚠ No key set</span><span style="color:var(--m);font-size:10px">Anonymous access — may be rate-limited</span>`;
+  const fbRaw = localStorage.getItem('ev_fb_config');
+  let fbProjectId = null;
+  try { fbProjectId = JSON.parse(fbRaw)?.projectId; } catch(e) {}
+  document.getElementById('fbStatus').innerHTML = fbProjectId
+    ? `<span style="color:var(--a)">✓ Connected</span><span style="color:var(--m);font-size:10px">Project: ${fbProjectId}</span>`
+    : `<span style="color:var(--w)">⚠ Not configured</span><span style="color:var(--m);font-size:10px">Pricing saved locally only</span>`;
 }
 function closeSettings() {
   document.getElementById('settingsModal').style.display = 'none';
 }
+function clearOcmKey() {
+  S.ocmKey = '';
+  localStorage.removeItem('ev_ocm_key');
+  showToast('OCM key cleared — using anonymous access');
+  openSettings();
+}
+function clearFbConfig() {
+  localStorage.removeItem('ev_fb_config');
+  S.fbDb = null; S.fbApp = null;
+  setStatus('fb', 'off', 'Firebase');
+  showToast('Firebase config cleared');
+  openSettings();
+}
 function saveSettings() {
-  S.ocmKey = document.getElementById('ocmKeyInput').value.trim();
-  localStorage.setItem('ev_ocm_key', S.ocmKey);
+  // OCM key — only update if user typed something new
+  const newOcm = document.getElementById('ocmKeyInput').value.trim();
+  if (newOcm) {
+    S.ocmKey = newOcm;
+    localStorage.setItem('ev_ocm_key', newOcm);
+    showToast('OCM key updated');
+  }
+  // Firebase — only update if user pasted something new
   const raw = document.getElementById('fbConfigInput').value.trim();
   if (raw) {
     try {
       JSON.parse(raw);
       localStorage.setItem('ev_fb_config', raw);
       initFirebase();
+      showToast('Firebase config updated');
     } catch(e) { alert('Invalid JSON in Firebase config.'); return; }
   }
   closeSettings();
-  setStatus('ocm', 'on', 'OCM');
+  if (newOcm) setStatus('ocm', 'on', 'OCM');
 }
 
 // ═══════════════════════════════════════════════
