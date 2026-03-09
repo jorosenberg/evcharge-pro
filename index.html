@@ -214,11 +214,16 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
 .acc-body{padding:8px 10px;border-bottom:1px solid var(--b);background:var(--bg)}
 
 /* TOU table */
-.tou-grid{display:grid;grid-template-columns:90px 62px 62px 60px 56px 22px;gap:4px;align-items:center;margin-bottom:4px}
-.tou-head{font-size:9px;color:var(--m);font-family:var(--mo);padding-bottom:2px;text-align:center}
-.tou-head:first-child{text-align:left}
-.del-btn{background:none;border:none;color:var(--m);cursor:pointer;font-size:13px;line-height:1;padding:0;display:grid;place-items:center;height:22px;transition:color .15s}
-.del-btn:hover{color:var(--d)}
+.tou-card{background:var(--card);border:1px solid var(--b);border-radius:6px;padding:8px;margin-bottom:6px}
+.tou-card-header{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.tou-card-label{flex:1;font-size:11px;font-weight:600;color:var(--t)}
+.tou-time-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.tou-rate-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tou-field-label{font-size:9px;color:var(--m);font-family:var(--mo);margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px}
+.tou-time-preview{font-size:10px;font-family:var(--mo);font-weight:600;margin-bottom:3px;min-height:14px}
+.del-btn{background:none;border:1px solid var(--b);border-radius:4px;color:var(--m);cursor:pointer;font-size:13px;line-height:1;padding:2px 6px;transition:all .15s}
+.del-btn:hover{color:var(--d);border-color:var(--d)}
+.tou-head{display:none}
 .add-row-btn{
   width:100%;height:22px;border:1px dashed var(--b);border-radius:4px;
   background:none;color:var(--m);cursor:pointer;font-size:11px;
@@ -439,10 +444,10 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
   }
 
   /* Result panel: extra bottom room so nothing hides behind nav chrome */
-  .result-panel { padding-bottom: 16px !important; }
+  .result-panel { padding-bottom: 20px !important; }
 
-  /* Last section in sidebar: don't clip */
-  .sb-sec:last-child { border-bottom: none; padding-bottom: 16px; }
+  /* Last section in sidebar: generous bottom clearance */
+  .sb-sec:last-child { border-bottom: none; padding-bottom: 80px; }
 
   /* Drag handle indicator */
   .sidebar::before {
@@ -466,8 +471,7 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
   .topbar { padding: 0 10px; }
   .logo { font-size: 14px; }
 
-  /* TOU grid adapts */
-  .tou-grid { grid-template-columns: 70px 56px 56px 48px 44px 22px !important; gap: 3px !important; }
+  /* TOU now uses card layout — no grid override needed */
 
   /* Result panel bigger text */
   .result-big { font-size: 32px !important; }
@@ -475,7 +479,7 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
 }
 
 @media (max-width: 380px) {
-  .tou-grid { grid-template-columns: 60px 50px 50px 44px 40px 20px !important; }
+
   .result-secondary { grid-template-columns: 1fr 1fr !important; }
 }
 </style>
@@ -1762,6 +1766,18 @@ async function selectCharger(c, marker) {
     S.pricingSource = S.pricing._source || 'default';
   }
   if (fbData && fbData.parking) S.parking = {...fbData.parking};
+
+  // Restore override kW from community/local DB into S.chargerOverrides
+  if (fbData && fbData.override) {
+    const ov = fbData.override;
+    S.chargerOverrides[id] = {
+      enabled: ov.override_enabled || false,
+      kw: ov.reported_max_kw || ov.kw || 0,
+    };
+    localStorage.setItem('ev_overrides', JSON.stringify(S.chargerOverrides));
+    console.log('[EVCharge] Override loaded from DB:', S.chargerOverrides[id]);
+  }
+
   S.pricingModified = false;
 
   renderChargerCard();
@@ -2108,6 +2124,9 @@ function renderChargerCard() {
   const ov = S.chargerOverrides[String(c.ID)] || {};
   const ovActive = !!ov.enabled;
   const ovKw = ov.kw || kw;
+  // True if this override was loaded from community/local DB (not just set in this session)
+  const _localPricing = JSON.parse(localStorage.getItem('ev_local_pricing') || '{}');
+  const ovFromDB = !!(S.fbCache[String(c.ID)]?.override || _localPricing[String(c.ID)]?.override);
   // UsageType badges
   const ut = c.UsageType || {};
   const usageBadges = [
@@ -2149,7 +2168,9 @@ function renderChargerCard() {
         <span style="font-size:10px;color:var(--m);font-family:var(--mo)">kW</span>
 
       </div>
-      ${ovActive ? '<div style="font-size:9px;color:var(--w);font-family:var(--mo);margin-top:3px">⚠ Override active — will save with pricing below</div>' : '<div style="font-size:9px;color:var(--m);font-family:var(--mo);margin-top:3px">Enable to report a slower real-world speed</div>'}
+      ${ovActive
+        ? `<div style="font-size:9px;color:var(--w);font-family:var(--mo);margin-top:3px">⚠ Reporting ${ovKw}kW${ovFromDB?' · <span style=\'color:var(--a)\'>from community DB</span>':''} — saves with pricing</div>`
+        : '<div style="font-size:9px;color:var(--m);font-family:var(--mo);margin-top:3px">Enable to report a slower real-world speed</div>'}
     </div>
   `;
 }
@@ -2352,33 +2373,70 @@ function renderPricingAccordion() {
 function renderTouTable() {
   const el = document.getElementById('touTable');
   const tou = S.pricing.tou || [];
-  el.innerHTML = `
-    <div class="tou-grid" style="margin-bottom:4px">
-      <div class="tou-head">Label</div>
-      <div class="tou-head">Start</div>
-      <div class="tou-head">End</div>
-      <div class="tou-head">$/kWh</div>
-      <div class="tou-head">$/hr</div>
-      <div class="tou-head"></div>
-    </div>
-    ${tou.map((iv,i) => `
-      <div class="tou-grid">
-        <input class="inp-sm" value="${iv.label||''}" onchange="updateTou(${i},'label',this.value)"/>
-        <div style="display:flex;flex-direction:column;gap:1px">
-          <div style="font-size:9px;font-family:var(--mo);color:var(--a);text-align:center;line-height:1.2">${fmt12h(iv.start||'09:00')}</div>
-          <input class="inp-sm" type="time" value="${iv.start||'09:00'}" onchange="updateTou(${i},'start',this.value);renderTouTable()" style="width:100%"/>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:1px">
-          <div style="font-size:9px;font-family:var(--mo);color:var(--d);text-align:center;line-height:1.2">${fmt12h(iv.end||'21:00')}</div>
-          <input class="inp-sm" type="time" value="${iv.end||'21:00'}" onchange="updateTou(${i},'end',this.value);renderTouTable()" style="width:100%"/>
-        </div>
-        <input class="inp-sm" type="number" step="0.01" value="${iv.kwh??iv.cost_per_kwh??0}" onchange="updateTou(${i},'kwh',+this.value)"/>
-        <input class="inp-sm" type="number" step="0.01" value="${iv.hr??iv.cost_per_hour??0}" onchange="updateTou(${i},'hr',+this.value)"/>
-        <button class="del-btn" onclick="removeTou(${i})">×</button>
+  if (!tou.length) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--m);text-align:center;padding:8px 0">No intervals — click below to add one</div>';
+    return;
+  }
+  el.innerHTML = tou.map((iv,i) => `
+    <div class="tou-card" id="touCard${i}">
+      <div class="tou-card-header">
+        <input class="inp-sm tou-card-label" value="${(iv.label||'').replace(/"/g,'&quot;')}"
+          placeholder="Label (e.g. Peak)"
+          oninput="updateTouLive(${i},'label',this.value)"
+          onchange="updateTouLive(${i},'label',this.value)"
+          style="flex:1;font-weight:600"/>
+        <button class="del-btn" onclick="removeTou(${i})">✕ Remove</button>
       </div>
-    `).join('')}
-    <button class="add-row-btn" onclick="addTou()">+ Add Interval</button>
-  `;
+      <div class="tou-time-row">
+        <div>
+          <div class="tou-field-label">Start time</div>
+          <div class="tou-time-preview" id="touStartPrev${i}" style="color:var(--a)">${fmt12h(iv.start||'09:00')}</div>
+          <input class="inp-sm" type="time" value="${iv.start||'09:00'}"
+            oninput="updateTouTime(${i},'start',this.value)"
+            style="width:100%"/>
+        </div>
+        <div>
+          <div class="tou-field-label">End time</div>
+          <div class="tou-time-preview" id="touEndPrev${i}" style="color:var(--d)">${fmt12h(iv.end||'21:00')}</div>
+          <input class="inp-sm" type="time" value="${iv.end||'21:00'}"
+            oninput="updateTouTime(${i},'end',this.value)"
+            style="width:100%"/>
+        </div>
+      </div>
+      <div class="tou-rate-row">
+        <div>
+          <div class="tou-field-label">Rate $/kWh</div>
+          <input class="inp-sm" type="number" min="0" step="0.01"
+            value="${iv.kwh ?? iv.cost_per_kwh ?? 0}"
+            oninput="updateTouLive(${i},'kwh',+this.value)"
+            style="width:100%"/>
+        </div>
+        <div>
+          <div class="tou-field-label">Time fee $/hr</div>
+          <input class="inp-sm" type="number" min="0" step="0.01"
+            value="${iv.hr ?? iv.cost_per_hour ?? 0}"
+            oninput="updateTouLive(${i},'hr',+this.value)"
+            style="width:100%"/>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Update time: only refresh the AM/PM preview span, don't re-render the whole table
+function updateTouTime(i, field, val) {
+  S.pricing.tou[i][field] = val;
+  const prevEl = document.getElementById(field === 'start' ? `touStartPrev${i}` : `touEndPrev${i}`);
+  if (prevEl) prevEl.innerHTML = fmt12h(val);
+  markPricingModified();
+  scheduleAutoCalc();
+}
+
+// Update label/rate: just save value, no DOM re-render needed
+function updateTouLive(i, field, val) {
+  S.pricing.tou[i][field] = val;
+  markPricingModified();
+  scheduleAutoCalc();
 }
 
 function fmt12h(t) {
