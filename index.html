@@ -671,6 +671,9 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
               </div>
             </div>
           </div>
+          <button class="save-btn" id="saveParkingBtn" onclick="savePricingToFirebase()" style="display:none">
+            💾 Save parking to community database
+          </button>
         </div>
       </div>
 
@@ -1140,6 +1143,16 @@ function renderClipboardBadge() {
 
 async function savePricingToFirebase() {
   if (!S.selectedCharger) return alert('Select a charger first.');
+  const id = String(S.selectedCharger.ID);
+
+  // Include override kW in the same save
+  const ov = S.chargerOverrides[id];
+  const overrideData = ov ? {
+    reported_max_kw: ov.kw,
+    override_enabled: ov.enabled,
+    rated_max_kw: getChargerKw(S.selectedCharger),
+  } : null;
+
   const data = {
     ocm_id: S.selectedCharger.ID,
     network: getChargerNetwork(S.selectedCharger),
@@ -1147,24 +1160,29 @@ async function savePricingToFirebase() {
     max_kw: getChargerKw(S.selectedCharger),
     pricing: {...S.pricing},
     parking: {...S.parking},
+    ...(overrideData ? {override: overrideData} : {}),
     updated: Date.now(),
     by: 'community',
   };
-  const id = String(S.selectedCharger.ID);
+
   // Save to localStorage always
   const local = JSON.parse(localStorage.getItem('ev_local_pricing') || '{}');
   local[id] = data;
   localStorage.setItem('ev_local_pricing', JSON.stringify(local));
   S.fbCache[id] = data;
+
   // Save to Firebase if available
   if (S.fbDb) {
     try {
       await S.fbDb.collection('chargers').doc(id).set(data, {merge:true});
-      showToast('✓ Saved to community database');
+      const parts = ['pricing'];
+      if (S.parking.enabled) parts.push('parking');
+      if (overrideData?.override_enabled) parts.push('kW override');
+      showToast('✓ Saved ' + parts.join(' + ') + ' to community database');
       S.pricingSource = 'community';
       renderChargerCard();
     } catch(e) {
-      showToast('Saved locally (Firebase error)');
+      showToast('Saved locally (Firebase error: ' + e.message + ')');
     }
   } else {
     showToast('Saved locally (Firebase not configured)');
@@ -1173,6 +1191,10 @@ async function savePricingToFirebase() {
   }
   S.pricingModified = false;
   document.getElementById('savePricingBtn').style.display = 'none';
+  const _pb = document.getElementById('saveParkingBtn');
+  if (_pb) _pb.style.display = 'none';
+  const pb = document.getElementById('saveParkingBtn');
+  if (pb) pb.style.display = 'none';
 }
 
 async function testFirebase() {
@@ -2125,9 +2147,9 @@ function renderChargerCard() {
           placeholder="${kw||50}" style="flex:1" ${!ovActive?'disabled':''} 
           oninput="setOverrideKw(${c.ID},+this.value)"/>
         <span style="font-size:10px;color:var(--m);font-family:var(--mo)">kW</span>
-        <button class="btn-sm" onclick="saveOverrideToFirebase(${c.ID})" style="height:22px;font-size:10px;padding:0 6px">💾</button>
+
       </div>
-      ${ovActive ? '<div style="font-size:9px;color:var(--w);font-family:var(--mo);margin-top:3px">⚠ Reporting slower than rated speed</div>' : ''}
+      ${ovActive ? '<div style="font-size:9px;color:var(--w);font-family:var(--mo);margin-top:3px">⚠ Override active — will save with pricing below</div>' : '<div style="font-size:9px;color:var(--m);font-family:var(--mo);margin-top:3px">Enable to report a slower real-world speed</div>'}
     </div>
   `;
 }
@@ -2387,7 +2409,11 @@ function syncPricing() {
 }
 function markPricingModified() {
   S.pricingModified = true;
-  if (S.selectedCharger) document.getElementById('savePricingBtn').style.display = '';
+  if (S.selectedCharger) {
+    document.getElementById('savePricingBtn').style.display = '';
+    const pb = document.getElementById('saveParkingBtn');
+    if (pb) pb.style.display = '';
+  }
 }
 function updatePricingSummary() {
   const s = S.pricing;
