@@ -3,8 +3,24 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>EVCharge Pro – EV Charging Cost Calculator</title>
+
+<!-- ── Icons & PWA ── -->
+<!-- Desktop favicon (already added by user) -->
 <link rel="icon" href="evchargepro.png" sizes="32x32" type="image/png"/>
+
+<!-- iOS home screen icon — Safari uses apple-touch-icon, ignores rel="icon" -->
+<!-- 1024x1024 works fine; iOS scales it down and adds rounded corners automatically -->
+<link rel="apple-touch-icon" href="evchargepro.png"/>
+
+<!-- iOS status bar style when launched from home screen -->
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="EVCharge Pro"/>
+
+<!-- Android / Chrome home screen icon via Web App Manifest -->
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#00e87a"/>
+<title>EVCharge Pro – EV Charging Cost Calculator</title>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wdth,wght@0,75..100,400..700;1,75..100,400..500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
@@ -483,6 +499,24 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
 
   .result-secondary { grid-template-columns: 1fr 1fr !important; }
 }
+
+/* ── Incentives ── */
+.incentive-card{background:var(--card);border:1px solid var(--b);border-radius:6px;padding:8px;margin-bottom:6px}
+.incentive-card-header{display:flex;align-items:flex-start;gap:6px;margin-bottom:6px}
+.incentive-card-name{flex:1;font-size:11px;font-weight:600;color:var(--t);line-height:1.3}
+.incentive-card-badge{font-size:9px;font-family:var(--mo);background:var(--ad);color:var(--a);border:1px solid rgba(0,232,122,.2);border-radius:3px;padding:1px 5px;white-space:nowrap}
+.incentive-card-desc{font-size:10px;color:var(--m2);margin-bottom:6px;line-height:1.4}
+.incentive-fields{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.incentive-lib-item{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--b);border-radius:6px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.incentive-lib-item:hover{border-color:var(--a);background:var(--ad)}
+.incentive-lib-item.already-added{opacity:.5;cursor:default;pointer-events:none}
+.incentive-lib-info{flex:1}
+.incentive-lib-name{font-size:12px;font-weight:600;color:var(--t);margin-bottom:2px}
+.incentive-lib-desc{font-size:10px;color:var(--m2);line-height:1.4}
+.incentive-lib-value{font-size:11px;font-family:var(--mo);color:var(--a);font-weight:700;white-space:nowrap;margin-top:2px}
+.incentive-add-btn{background:var(--a);color:#000;border:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-top:2px}
+.incentive-add-btn:disabled{background:var(--b);color:var(--m);cursor:default}
+.result-incentive{border-top:1px solid rgba(0,232,122,.2);margin-top:6px;padding-top:6px}
 </style>
 </head>
 <body>
@@ -682,6 +716,30 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
         </div>
       </div>
 
+      <!-- Incentives Accordion -->
+      <div class="sb-sec acc-sec" id="incentiveAcc">
+        <div class="acc-header" onclick="toggleAcc('incentive')">
+          <div class="acc-title">&#127873; Incentives &amp; Rebates</div>
+          <div class="acc-right">
+            <span class="acc-summary" id="incentiveSummary"></span>
+            <span class="acc-chevron" id="incentiveChev">&#9658;</span>
+          </div>
+        </div>
+        <div id="incentiveBody" style="display:none">
+          <div class="acc-body">
+            <div style="font-size:10px;color:var(--m2);margin-bottom:8px">
+              Add utility or government incentives that reduce your net charging cost.
+              Time-windowed rebates are calculated against your actual kWh in that window.
+            </div>
+            <button class="add-row-btn" onclick="showIncentiveLibrary()" style="margin-bottom:8px;height:28px;font-size:11px;border-style:solid;border-color:rgba(0,232,122,.3);color:var(--a)">
+              Browse known programs&#8230;
+            </button>
+            <div id="incentiveList"></div>
+            <button class="add-row-btn" onclick="addCustomIncentive()" style="margin-top:4px">+ Add custom incentive</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Always-on result + live session -->
       <div class="sb-sec" style="padding-bottom:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
@@ -718,6 +776,20 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
         <div class="spinner" style="width:12px;height:12px;border-color:rgba(0,232,122,.3);border-top-color:var(--a);border-width:2px;animation:spin .8s linear infinite;border-style:solid;border-radius:50%"></div>
         Loading chargers…
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Incentive Library Modal -->
+<div class="modal-overlay" id="incentiveModal" style="display:none" onclick="if(event.target===this)closeIncentiveModal()">
+  <div class="modal-box" style="max-width:500px">
+    <div class="modal-title">Incentive &amp; Rebate Programs</div>
+    <div style="font-size:11px;color:var(--m2);margin-bottom:12px">
+      Select programs to add them to your session. Time-windowed rebates apply automatically based on your charge start time.
+    </div>
+    <div id="incentiveLibraryList"></div>
+    <div class="modal-footer">
+      <button class="modal-btn" onclick="closeIncentiveModal()">Done</button>
     </div>
   </div>
 </div>
@@ -986,6 +1058,7 @@ const S = {
   loading: false,
   networkSet: new Set(),
   chargerOverrides: JSON.parse(localStorage.getItem('ev_overrides') || '{}'),
+  incentives: [],
   clipboard: null,   // { pricing, parking, sourceNetwork, sourceKw, sourceName, copiedAt }
   liveSession: null,   // { startTime, intervalId, baseResult }
   autoCalc: false,
@@ -1269,6 +1342,7 @@ function saveSettings() {
       JSON.parse(raw);
       localStorage.setItem('ev_fb_config', raw);
       initFirebase();
+  initIncentives();
       showToast('Firebase config updated');
     } catch(e) { alert('Invalid JSON in Firebase config.'); return; }
   }
@@ -2003,10 +2077,11 @@ function runCalc(vehicle, chargerKw, pricing, parking, mode, durationMin, socSta
   const total = cost + parkCost;
   const avgKw = totalKwh / ((duration || 1) / 60);
 
+  const milesAdded = vehicle.milesPerKwh ? Math.round(totalKwh * vehicle.milesPerKwh) : null;
   return {
     totalKwh, duration, total: Math.max(0,total),
-    eCost, tCost, parkCost, minFeeApplied, savings,
-    avgKw, socStart, socFinal, warnings,
+    eCost, tCost, parkCost, minFeeApplied, savings, sessionFee,
+    milesAdded, avgKw, socStart, socFinal, warnings,
     breakdown: Object.entries(breakdown).map(([k,v])=>({label:k,...v})),
     kwhPerMin,
   };
@@ -2547,6 +2622,11 @@ function calculate() {
       getStartHour(),
       S.sub.sessionFee || 0
     );
+    const startHr = getStartHour();
+    const incData = calcIncentiveSavings(result, startHr);
+    result.incentiveSavings = incData.totalSavings;
+    result.incentiveBreakdown = incData.breakdownItems;
+    result.netTotal = Math.max(0, result.total - incData.totalSavings);
     S.result = result;
     renderResult(result);
     document.getElementById('resultPlaceholder').style.display = 'none';
@@ -2612,8 +2692,20 @@ function renderResult(r) {
       ${r.parkCost > 0 ? `<div class="result-row"><span class="result-row-label">Parking</span><span class="result-row-val warn">${fmt2(r.parkCost)}</span></div>` : ''}
       ${r.minFeeApplied > 0 ? `<div class="result-row"><span class="result-row-label">Min fee +</span><span class="result-row-val warn">${fmt2(r.minFeeApplied)}</span></div>` : ''}
       ${r.savings > 0 ? `<div class="result-row"><span class="result-row-label">Sub saves</span><span class="result-row-val green">-${fmt2(r.savings)}</span></div>` : ''}
-      <div class="result-row"><span class="result-row-label">Effective</span><span class="result-row-val">${r.totalKwh>0?'$'+(r.total/r.totalKwh).toFixed(3)+'/kWh':'—'}</span></div>
+      ${(r.incentiveBreakdown||[]).map(ib =>
+        `<div class="result-row"><span class="result-row-label" title="${ib.name}">🎁 ${ib.name.length>20?ib.name.substring(0,19)+'…':ib.name}</span><span class="result-row-val green">-${fmt2(ib.savings)}</span></div>`
+      ).join('')}
+      <div class="result-row"><span class="result-row-label">Effective $/kWh</span><span class="result-row-val">${r.totalKwh>0?'$'+(r.total/r.totalKwh).toFixed(3):'-'}</span></div>
     </div>
+    ${(r.incentiveSavings||0) > 0 ? `
+    <div class="result-incentive">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:3px">
+        <div style="font-size:9px;font-family:var(--mo);color:var(--m);text-transform:uppercase;letter-spacing:1px">Net after incentives</div>
+        <div style="font-size:9px;font-family:var(--mo);color:var(--a)">saves ${fmt2(r.incentiveSavings)}</div>
+      </div>
+      <div style="font-size:28px;font-weight:700;color:var(--a);font-family:var(--mo);line-height:1.1">${fmt2(r.netTotal)}</div>
+      <div style="font-size:9px;color:var(--m2);margin-top:2px">vs ${fmt2(r.total)} without incentives · ${r.totalKwh>0?'$'+(r.netTotal/r.totalKwh).toFixed(3)+'/kWh net':''}</div>
+    </div>` : ''}
     ${r.breakdown.length > 1 ? `<div class="tou-mini" style="margin-top:5px">${touRows}</div>` : ''}
     ${r.warnings.map(w=>`<div class="warn-pill">⚠ ${w}</div>`).join('')}
   `;
@@ -2675,6 +2767,346 @@ function updateLiveSession() {
 
   // Stop if battery full
   if (r.socFinal >= 0.999) stopLiveSession();
+}
+
+// ═══════════════════════════════════════════════
+// INCENTIVES & REBATES
+// ═══════════════════════════════════════════════
+
+// Built-in program library
+// type: 'per_kwh_window' = $/kWh rebate for kWh charged in a time window
+//       'per_kwh_flat'   = $/kWh rebate on all kWh in session
+//       'flat_bonus'     = fixed $ bonus (shown as info, not subtracted from session cost)
+const INCENTIVE_LIBRARY = [
+  {
+    id: 'coned_smartcharge_offpeak',
+    name: 'Con Ed SmartCharge NY — Off-Peak',
+    provider: 'Con Edison',
+    region: 'NYC & Westchester, NY',
+    url: 'https://www.coned.com/en/save-money/rebates-incentives-tax-credits/rebates-incentives-tax-credits-for-residential-customers/electric-vehicle-rewards',
+    type: 'per_kwh_window',
+    rebatePerKwh: 0.10,
+    windowStart: 0,    // 12:00 AM
+    windowEnd: 8,      // 8:00 AM
+    windowLabel: '12am–8am',
+    desc: 'Earn $0.10/kWh for every kWh charged midnight to 8am, year-round. Avg $400/yr. Must enroll at scny.ev.energy.',
+    note: 'Requires enrollment. Not available on TOU rate plans (SC1/SC2).',
+    applies: 'public_and_home',
+  },
+  {
+    id: 'coned_smartcharge_summer_avoid',
+    name: 'Con Ed SmartCharge NY — Summer Peak Avoidance',
+    provider: 'Con Edison',
+    region: 'NYC & Westchester, NY',
+    url: 'https://www.coned.com/en/save-money/rebates-incentives-tax-credits/rebates-incentives-tax-credits-for-residential-customers/electric-vehicle-rewards',
+    type: 'flat_bonus',
+    bonusAmount: 35,
+    bonusPeriod: 'monthly (Jun–Sep)',
+    desc: 'Earn $35/month (Jun–Sep) by avoiding charging weekdays 2–6pm. This is a billing credit, not a per-session cost reduction.',
+    note: 'Shown here as context only — does not reduce individual session cost.',
+    applies: 'home',
+  },
+  {
+    id: 'nyserda_ev_rebate',
+    name: 'NYSERDA Drive Clean Rebate',
+    provider: 'NYSERDA',
+    region: 'New York State',
+    url: 'https://www.nyserda.ny.gov/All-Programs/Drive-Clean-Rebate-For-Electric-Cars-Program',
+    type: 'flat_bonus',
+    bonusAmount: 2000,
+    bonusPeriod: 'one-time purchase rebate',
+    desc: 'Up to $2,000 off the purchase of a new EV. This is a vehicle purchase incentive, not a charging rebate — shown for awareness.',
+    note: 'Does not affect session cost.',
+    applies: 'purchase',
+  },
+  {
+    id: 'pge_ev2a',
+    name: 'PG&E EV2-A Off-Peak Rate',
+    provider: 'PG&E',
+    region: 'Northern/Central California',
+    url: 'https://www.pge.com/en/account/rate-plans/rate-plan-options/electric-vehicle-rate-plans.html',
+    type: 'per_kwh_window',
+    rebatePerKwh: 0.14,
+    windowStart: 23,   // 11pm
+    windowEnd: 7,      // 7am (wraps midnight)
+    windowLabel: '11pm–7am',
+    desc: 'EV2-A super off-peak rate is ~$0.14/kWh cheaper than peak. Enter as a discount vs your baseline rate for the off-peak window.',
+    note: 'Requires switching to EV2-A rate plan. Best for home charging.',
+    applies: 'home',
+  },
+  {
+    id: 'sce_tou_d_prime',
+    name: 'SCE TOU-D-PRIME Off-Peak Credit',
+    provider: 'Southern California Edison',
+    region: 'Southern California',
+    url: 'https://www.sce.com/residential/rates/Time-Of-Use-Residential-Rate-Plans',
+    type: 'per_kwh_window',
+    rebatePerKwh: 0.12,
+    windowStart: 21,   // 9pm
+    windowEnd: 8,      // 8am
+    windowLabel: '9pm–8am',
+    desc: 'SCE TOU-D-PRIME super off-peak discount ~$0.12/kWh vs peak rate for charging overnight.',
+    note: 'Requires TOU-D-PRIME rate enrollment.',
+    applies: 'home',
+  },
+  {
+    id: 'custom',
+    name: 'Custom incentive',
+    provider: 'Custom',
+    region: 'Any',
+    url: '',
+    type: 'per_kwh_window',
+    rebatePerKwh: 0.10,
+    windowStart: 0,
+    windowEnd: 8,
+    windowLabel: 'custom',
+    desc: 'Define your own utility rebate.',
+    note: '',
+    applies: 'any',
+  },
+];
+
+// S.incentives = array of active incentive objects (copies from library, editable)
+// Persisted to localStorage
+
+function initIncentives() {
+  try {
+    const saved = localStorage.getItem('ev_incentives');
+    S.incentives = saved ? JSON.parse(saved) : [];
+  } catch(e) { S.incentives = []; }
+  renderIncentiveList();
+  updateIncentiveSummary();
+}
+
+function saveIncentivesToStorage() {
+  localStorage.setItem('ev_incentives', JSON.stringify(S.incentives));
+}
+
+function addIncentiveFromLibrary(libId) {
+  const template = INCENTIVE_LIBRARY.find(x => x.id === libId);
+  if (!template) return;
+  // Don't add duplicates
+  if (S.incentives.some(x => x.libId === libId)) {
+    showToast('That program is already added');
+    return;
+  }
+  const inc = {
+    ...template,
+    libId: libId,
+    enabled: true,
+    id: Date.now(),
+  };
+  S.incentives.push(inc);
+  saveIncentivesToStorage();
+  renderIncentiveList();
+  updateIncentiveSummary();
+  scheduleAutoCalc();
+  closeIncentiveModal();
+  showToast('Added: ' + template.name);
+}
+
+function addCustomIncentive() {
+  const inc = {
+    libId: 'custom_' + Date.now(),
+    id: Date.now(),
+    name: 'My Incentive',
+    provider: '',
+    type: 'per_kwh_window',
+    rebatePerKwh: 0.10,
+    windowStart: 0,
+    windowEnd: 8,
+    windowLabel: '',
+    desc: '',
+    enabled: true,
+    custom: true,
+  };
+  S.incentives.push(inc);
+  saveIncentivesToStorage();
+  renderIncentiveList();
+  updateIncentiveSummary();
+  // Open the accordion if closed
+  const body = document.getElementById('incentiveBody');
+  if (body && body.style.display === 'none') {
+    body.style.display = '';
+    const chev = document.getElementById('incentiveChev');
+    if (chev) chev.classList.add('open');
+  }
+  scheduleAutoCalc();
+}
+
+function removeIncentive(id) {
+  S.incentives = S.incentives.filter(x => x.id !== id);
+  saveIncentivesToStorage();
+  renderIncentiveList();
+  updateIncentiveSummary();
+  scheduleAutoCalc();
+}
+
+function toggleIncentive(id, enabled) {
+  const inc = S.incentives.find(x => x.id === id);
+  if (inc) { inc.enabled = enabled; saveIncentivesToStorage(); scheduleAutoCalc(); updateIncentiveSummary(); }
+}
+
+function updateIncentiveField(id, field, val) {
+  const inc = S.incentives.find(x => x.id === id);
+  if (inc) {
+    inc[field] = field === 'rebatePerKwh' ? parseFloat(val)||0 : (field === 'windowStart' || field === 'windowEnd' ? parseFloat(val)||0 : val);
+    saveIncentivesToStorage();
+    scheduleAutoCalc();
+    updateIncentiveSummary();
+  }
+}
+
+function renderIncentiveList() {
+  const el = document.getElementById('incentiveList');
+  if (!el) return;
+  if (!S.incentives.length) {
+    el.innerHTML = '<div style="font-size:10px;color:var(--m);text-align:center;padding:6px 0">No incentives added yet</div>';
+    return;
+  }
+  el.innerHTML = S.incentives.map(inc => {
+    const isWindow = inc.type === 'per_kwh_window';
+    const isFlat   = inc.type === 'per_kwh_flat';
+    const isBonus  = inc.type === 'flat_bonus';
+    return `
+    <div class="incentive-card">
+      <div class="incentive-card-header">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
+            <label class="tog" style="transform:scale(.8);transform-origin:left">
+              <input type="checkbox" ${inc.enabled?'checked':''} onchange="toggleIncentive(${inc.id},this.checked)"/>
+              <div class="tog-track"></div><div class="tog-thumb"></div>
+            </label>
+            ${inc.custom
+              ? `<input class="inp-sm" value="${(inc.name||'').replace(/"/g,'&quot;')}" oninput="updateIncentiveField(${inc.id},'name',this.value)" style="flex:1;font-weight:600;font-size:11px"/>`
+              : `<span class="incentive-card-name">${inc.name}</span>`
+            }
+          </div>
+          ${inc.provider ? `<div style="font-size:9px;color:var(--m);font-family:var(--mo)">${inc.provider}${inc.region?' · '+inc.region:''}</div>` : ''}
+        </div>
+        <button class="del-btn" onclick="removeIncentive(${inc.id})" style="font-size:11px">✕</button>
+      </div>
+      ${isBonus ? `
+        <div class="incentive-card-desc" style="color:var(--w)">
+          ℹ ${inc.desc}
+        </div>
+        <div style="font-size:10px;font-family:var(--mo);color:var(--a)">+$${inc.bonusAmount} ${inc.bonusPeriod||''} (billing credit — not deducted from session)</div>
+      ` : `
+        <div class="incentive-fields">
+          <div>
+            <div class="tou-field-label">Rebate $/kWh</div>
+            <input class="inp-sm" type="number" min="0" step="0.01" value="${inc.rebatePerKwh||0}"
+              oninput="updateIncentiveField(${inc.id},'rebatePerKwh',this.value)" style="width:100%"/>
+          </div>
+          ${isWindow ? `
+          <div>
+            <div class="tou-field-label">Type</div>
+            <div style="font-size:10px;color:var(--t);padding-top:5px">Time window</div>
+          </div>
+          <div>
+            <div class="tou-field-label">Window start (hr, 0–23)</div>
+            <input class="inp-sm" type="number" min="0" max="23" step="1" value="${inc.windowStart||0}"
+              oninput="updateIncentiveField(${inc.id},'windowStart',this.value)" style="width:100%"/>
+          </div>
+          <div>
+            <div class="tou-field-label">Window end (hr, 0–23)</div>
+            <input class="inp-sm" type="number" min="0" max="23" step="1" value="${inc.windowEnd||8}"
+              oninput="updateIncentiveField(${inc.id},'windowEnd',this.value)" style="width:100%"/>
+          </div>
+          ` : `
+          <div>
+            <div class="tou-field-label">Type</div>
+            <div style="font-size:10px;color:var(--t);padding-top:5px">All kWh</div>
+          </div>
+          `}
+        </div>
+        ${inc.note ? `<div style="font-size:9px;color:var(--m2);margin-top:5px;font-style:italic">${inc.note}</div>` : ''}
+        ${inc.url ? `<a href="${inc.url}" target="_blank" rel="noopener" style="font-size:9px;color:var(--a);margin-top:3px;display:block">Learn more ↗</a>` : ''}
+      `}
+    </div>`;
+  }).join('');
+}
+
+function updateIncentiveSummary() {
+  const el = document.getElementById('incentiveSummary');
+  if (!el) return;
+  const active = S.incentives.filter(x => x.enabled && x.type !== 'flat_bonus');
+  el.textContent = active.length ? active.length + ' active' : '';
+}
+
+// Calculate total incentive savings against a result
+function calcIncentiveSavings(result, startHour) {
+  const kwhPerMin = result.kwhPerMin;
+  let totalSavings = 0;
+  const breakdownItems = [];
+
+  S.incentives.filter(x => x.enabled && x.type !== 'flat_bonus').forEach(inc => {
+    let savings = 0;
+    if (inc.type === 'per_kwh_flat') {
+      savings = result.totalKwh * (inc.rebatePerKwh || 0);
+    } else if (inc.type === 'per_kwh_window') {
+      // Walk minutes and count kWh that fall inside the window
+      const ws = inc.windowStart || 0;
+      const we = inc.windowEnd || 8;
+      let windowKwh = 0;
+      let el = 0;
+      while (el < result.duration) {
+        const step = Math.min(1, result.duration - el);
+        const absHour = (startHour + el / 60) % 24;
+        // Handle windows that wrap midnight (e.g. 23→7)
+        const inWindow = ws < we
+          ? (absHour >= ws && absHour < we)
+          : (absHour >= ws || absHour < we);
+        if (inWindow) windowKwh += kwhPerMin * step;
+        el += step;
+      }
+      savings = windowKwh * (inc.rebatePerKwh || 0);
+    }
+    if (savings > 0) {
+      totalSavings += savings;
+      breakdownItems.push({ name: inc.name, savings });
+    }
+  });
+
+  return { totalSavings, breakdownItems };
+}
+
+function showIncentiveLibrary() {
+  const el = document.getElementById('incentiveLibraryList');
+  const alreadyAdded = new Set(S.incentives.map(x => x.libId));
+  el.innerHTML = INCENTIVE_LIBRARY.filter(x => x.id !== 'custom').map(lib => {
+    const added = alreadyAdded.has(lib.id);
+    const valueLine = lib.type === 'per_kwh_window'
+      ? `$${lib.rebatePerKwh}/kWh · ${lib.windowLabel}`
+      : lib.type === 'per_kwh_flat'
+        ? `$${lib.rebatePerKwh}/kWh all kWh`
+        : `$${lib.bonusAmount} ${lib.bonusPeriod||''}`;
+    return `
+    <div class="incentive-lib-item ${added?'already-added':''}" data-libid="${lib.id}" data-added="${added}">
+      <div class="incentive-lib-info">
+        <div class="incentive-lib-name">${lib.name}</div>
+        <div class="incentive-lib-desc">${lib.provider} · ${lib.region}</div>
+        <div class="incentive-lib-desc" style="margin-top:2px">${lib.desc}</div>
+        <div class="incentive-lib-value">${valueLine}</div>
+      </div>
+      <button class="incentive-add-btn" ${added?'disabled':''} data-libid="${lib.id}">
+        ${added ? '&#10003; Added' : '+ Add'}
+      </button>
+    </div>`;
+  }).join('');
+  document.getElementById('incentiveModal').style.display = 'grid';
+  // Use event delegation to avoid inline handler quote issues
+  el.onclick = function(e) {
+    const btn = e.target.closest('[data-libid]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-libid');
+    const added = btn.closest('[data-added]')?.getAttribute('data-added') === 'true';
+    if (!added) addIncentiveFromLibrary(id);
+  };
+}
+
+function closeIncentiveModal() {
+  document.getElementById('incentiveModal').style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════
