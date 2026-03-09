@@ -2,11 +2,11 @@ name: Deploy EVCharge Pro to GitHub Pages
 
 on:
   push:
-    branches: [main]          # deploy on every push to main
-  workflow_dispatch:           # also allow manual trigger from Actions tab
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
-  contents: write              # needed to push to gh-pages branch
+  contents: write
 
 jobs:
   deploy:
@@ -16,39 +16,27 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # ── Write config.js from GitHub Secrets ──────────────────────────
-      # This file is generated fresh on every deploy and never committed
-      # to your repo — secrets stay encrypted in GitHub.
-      # IMPORTANT: Do NOT quote the heredoc delimiter.
-      # 'CONFIGEOF' (quoted) = literal string, secrets won't expand.
-      #  CONFIGEOF  (bare)   = GitHub Actions expands ${{ secrets.* }} correctly.
+      # ── Generate config.js ─────────────────────────────────────────────
+      # Using env vars avoids any heredoc quoting issues entirely.
+      # GitHub Actions expands ${{ secrets.* }} into the env block safely,
+      # then the shell just reads $OCM_KEY / $FB_CONFIG as normal variables.
       - name: Generate config.js from secrets
+        env:
+          OCM_KEY: ${{ secrets.OCM_API_KEY }}
+          FB_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
         run: |
-          cat > config.js << CONFIGEOF
-          window.EVCHARGE_CONFIG = {
-            ocmKey: "${{ secrets.OCM_API_KEY }}",
-            firebase: ${{ secrets.FIREBASE_CONFIG }}
-          };
-          CONFIGEOF
+          printf 'window.EVCHARGE_CONFIG = { ocmKey: "%s", firebase: %s };\n' \
+            "$OCM_KEY" "$FB_CONFIG" > config.js
+          echo "=== config.js preview (first 60 chars of each value redacted) ==="
+          echo "OCM key length: ${#OCM_KEY}"
+          echo "Firebase config length: ${#FB_CONFIG}"
 
-      # ── Write CNAME for custom domain (e.g. ev.yourdomain.com) ───────
-      # Store your subdomain as a secret called CUSTOM_DOMAIN
-      # e.g.  CUSTOM_DOMAIN = ev.yourdomain.com
-      # Delete this step if you are not using a custom domain.
-      - name: Write CNAME file
-        run: |
-          if [ -n "${{ secrets.CUSTOM_DOMAIN }}" ]; then
-            echo "${{ secrets.CUSTOM_DOMAIN }}" > CNAME
-            echo "CNAME set to: ${{ secrets.CUSTOM_DOMAIN }}"
-          else
-            echo "No CUSTOM_DOMAIN secret set, skipping CNAME"
-          fi
-
-      # ── Deploy to gh-pages ────────────────────────────────────────────
+      # ── Deploy to gh-pages ─────────────────────────────────────────────
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
           publish_branch: gh-pages
-          exclude_assets: '.github'
+          force_orphan: true
+          exclude_assets: '.github,*.md'
