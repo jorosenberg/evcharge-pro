@@ -112,17 +112,58 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
 .btn-sm.accent{background:var(--ad);border-color:rgba(0,232,122,.4);color:var(--a)}
 #locateBtn{font-size:13px}
 
-/* ── Sidebar ── */
+/* ── Sidebar shell ── */
 .sidebar{
   background:var(--surf);border-right:1px solid var(--b);
-  overflow-y:auto;overflow-x:hidden;
-  display:flex;flex-direction:column;
+  display:grid;
+  grid-template-rows:auto 1fr;   /* tab bar + panel area */
   height:100%;
+  overflow:hidden;
 }
 .sidebar::-webkit-scrollbar{width:3px}
 .sidebar::-webkit-scrollbar-track{background:transparent}
 .sidebar::-webkit-scrollbar-thumb{background:var(--b);border-radius:2px}
 
+/* ── Tab bar ── */
+.sb-tabs{
+  display:grid;grid-template-columns:1fr 1fr;
+  border-bottom:1px solid var(--b);
+  flex-shrink:0;
+  background:var(--bg);
+}
+.sb-tab{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  height:36px;border:none;background:none;color:var(--m);
+  font-family:var(--mo);font-size:10px;font-weight:700;letter-spacing:.5px;
+  text-transform:uppercase;cursor:pointer;transition:all .15s;
+  border-bottom:2px solid transparent;position:relative;
+}
+.sb-tab.active{color:var(--a);border-bottom-color:var(--a);background:var(--surf)}
+.sb-tab:not(.active):hover{color:var(--m2);background:rgba(255,255,255,.02)}
+.sb-tab-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--a);
+  display:none;position:absolute;top:6px;right:12px;
+}
+.sb-tab-dot.show{display:block}
+
+/* ── Two panel columns side by side ── */
+.sb-panels{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  overflow:hidden;
+  height:100%;
+}
+.sb-panel{
+  overflow-y:auto;overflow-x:hidden;
+  height:100%;
+  display:flex;flex-direction:column;
+}
+.sb-panel:first-child{border-right:1px solid var(--b)}
+.sb-panel::-webkit-scrollbar{width:3px}
+.sb-panel::-webkit-scrollbar-track{background:transparent}
+.sb-panel::-webkit-scrollbar-thumb{background:var(--b);border-radius:2px}
+
+/* ── Section inside a panel ── */
 .sb-sec{padding:8px 10px;border-bottom:1px solid var(--b)}
 .sb-label{
   font-size:10px;font-family:var(--mo);letter-spacing:1px;
@@ -444,38 +485,47 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
     order: -1;
   }
 
-  /* Sidebar slides up from bottom */
+  /* Sidebar bottom sheet */
   .sidebar {
-    height: 58vh;
-    height: 58dvh; /* dvh excludes mobile browser chrome — better than vh */
-    overflow-y: scroll;
-    overflow-x: hidden;
+    height: 58dvh;
     border-top: 2px solid var(--a);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -8px 32px rgba(0,0,0,.5);
     position: relative;
     z-index: 200;
-    -webkit-overflow-scrolling: touch;
-    /* Padding so last row clears the browser nav bar on iOS/Android */
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 48px);
+    /* On mobile: single column, tabs control which panel shows */
+    grid-template-rows: auto 1fr;
   }
 
-  /* Result panel: extra bottom room so nothing hides behind nav chrome */
-  .result-panel { padding-bottom: 20px !important; }
+  /* On mobile panels stack; JS shows/hides via .sb-panel-hidden */
+  .sb-panels {
+    grid-template-columns: 1fr !important;
+    position: relative;
+  }
+  .sb-panel {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: scroll;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 56px);
+  }
+  /* Hide inactive panel on mobile */
+  .sb-panel.sb-panel-hidden { display: none !important; }
 
-  /* Last section in sidebar: generous bottom clearance */
-  .sb-sec:last-child { border-bottom: none; padding-bottom: 80px; }
-
-  /* Drag handle indicator */
-  .sidebar::before {
+  /* Drag handle lives inside tab bar on mobile */
+  .sb-tabs::before {
     content: '';
-    display: block;
+    position: absolute;
+    top: 6px; left: 50%;
+    transform: translateX(-50%);
     width: 36px; height: 4px;
     background: var(--bb);
     border-radius: 2px;
-    margin: 8px auto 4px;
-    flex-shrink: 0;
   }
+  .sb-tabs { position: relative; padding-top: 14px; height: 50px; }
+  .sb-tab { font-size: 11px; height: 36px; }
+
+  /* Result panel */
+  .result-panel { padding-bottom: 20px !important; }
+  .sb-sec:last-child { border-bottom: none; padding-bottom: 24px; }
 
   /* Wider touch targets */
   .mode-btn, .park-type-btn { height: 34px !important; font-size: 12px !important; }
@@ -517,6 +567,89 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
 .incentive-add-btn{background:var(--a);color:#000;border:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-top:2px}
 .incentive-add-btn:disabled{background:var(--b);color:var(--m);cursor:default}
 .result-incentive{border-top:1px solid rgba(0,232,122,.2);margin-top:6px;padding-top:6px}
+
+/* ── Price-label markers ── */
+.price-marker {
+  display: flex; flex-direction: column; align-items: center;
+  position: relative; cursor: pointer;
+}
+.price-marker-pill {
+  background: #1a1d2e;
+  border: 1.5px solid rgba(255,255,255,.18);
+  border-radius: 6px;
+  padding: 2px 5px;
+  font-family: var(--mo);
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,.55);
+  position: relative;
+}
+.price-marker-pill.community {
+  border-color: rgba(0,232,122,.55);
+  background: #0e2018;
+}
+.price-marker-pill.estimated {
+  border-color: rgba(255,170,0,.4);
+  background: #1e1a0e;
+}
+.price-marker-pill.unknown {
+  border-color: rgba(120,120,160,.3);
+  background: #14151f;
+}
+.price-marker-pill.selected {
+  border-color: #ffaa00 !important;
+  background: #1e1800 !important;
+  box-shadow: 0 0 0 2px rgba(255,170,0,.35), 0 2px 8px rgba(0,0,0,.6);
+}
+.price-marker-rate {
+  font-size: 11px;
+  line-height: 1;
+}
+.price-marker-rate.community { color: #00e87a; }
+.price-marker-rate.estimated { color: #ffaa00; }
+.price-marker-rate.unknown   { color: #888; }
+.price-marker-rate.selected  { color: #ffaa00; }
+.price-marker-kw {
+  font-size: 8px;
+  color: #666;
+  line-height: 1;
+  margin-top: 1px;
+}
+.price-marker-net {
+  font-size: 8px;
+  color: #888;
+  line-height: 1;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+.price-marker-pill.cheapest {
+  border-color: rgba(255,170,0,.7) !important;
+  background: #1e1800 !important;
+  box-shadow: 0 0 0 2px rgba(255,170,0,.25), 0 2px 8px rgba(0,0,0,.6);
+}
+.price-marker-dot {
+  position: absolute;
+  top: -3px; right: -3px;
+  width: 7px; height: 7px;
+  background: #00e87a;
+  border-radius: 50%;
+  border: 1.5px solid #0c0d14;
+}
+.price-marker-caret {
+  width: 0; height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid rgba(255,255,255,.12);
+  margin-top: 0;
+}
+.price-marker-caret.community { border-top-color: rgba(0,232,122,.4); }
+.price-marker-caret.estimated { border-top-color: rgba(255,170,0,.3); }
+.price-marker-caret.selected  { border-top-color: rgba(255,170,0,.7); }
 </style>
 </head>
 <body>
@@ -527,6 +660,10 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
     <div class="logo"><div class="logo-bolt">⚡</div> EV<span>Charge</span> Pro</div>
     <div class="topbar-right">
       <button class="icon-btn" id="mobileToggleBtn" onclick="toggleMobileView()" title="Toggle map/details" style="display:none">🗺</button>
+      <button class="icon-btn" id="mobileFilterBtn" onclick="toggleMobileFilters()" title="Filters" style="display:none;position:relative">
+        ⊞
+        <span id="mobileFilterBadge" style="display:none;position:absolute;top:3px;right:3px;width:7px;height:7px;background:var(--a);border-radius:50%;border:1.5px solid var(--bg)"></span>
+      </button>
       <div class="status-chip" onclick="openSettings()" title="OpenChargeMap API">
         <div class="status-dot" id="ocmDot"></div>
         <span id="ocmLabel">OCM</span>
@@ -572,6 +709,151 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
     <button class="btn-sm" onclick="clearFilters()">✕ Clear</button>
     <input type="text" id="locationSearch" placeholder="Search location…" style="width:120px" onkeydown="if(event.key==='Enter')searchLocation()"/>
     <button class="btn-sm accent" onclick="searchLocation()">Go</button>
+    <div class="filter-sep"></div>
+    <button class="btn-sm" id="cheapestBtn" onclick="toggleCheapestPanel()" style="background:rgba(255,170,0,.12);color:#ffaa00;border-color:rgba(255,170,0,.3);white-space:nowrap">
+      🏆 Cheapest
+    </button>
+  </div>
+
+  <!-- Cheapest Charger Panel -->
+  <div id="cheapestPanel" style="display:none;position:absolute;top:78px;left:50%;transform:translateX(-50%);z-index:2000;background:rgba(12,13,20,.96);backdrop-filter:blur(10px);border:1px solid rgba(255,170,0,.3);border-radius:10px;padding:12px 14px;width:min(380px,calc(100vw - 24px));box-shadow:0 8px 32px rgba(0,0,0,.6);font-family:var(--mo)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--t)">🏆 Cheapest in View</div>
+      <button onclick="toggleCheapestPanel()" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:16px;line-height:1;padding:0 2px">×</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--m2);cursor:pointer">
+        <input type="checkbox" id="cheapCommunityOnly" onchange="runCheapestSearch()" style="accent-color:var(--a)"/>
+        <span>◆ Community-verified only</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--m2);cursor:pointer">
+        <input type="checkbox" id="cheapDcOnly" onchange="runCheapestSearch()"/>
+        <span>DC Fast only</span>
+      </label>
+    </div>
+    <div id="cheapestList" style="max-height:260px;overflow-y:auto"></div>
+    <div style="font-size:8px;color:var(--m);margin-top:8px;border-top:1px solid rgba(255,255,255,.06);padding-top:6px">
+      Cost estimate uses your current vehicle &amp; session settings. ◆ = community-verified price.
+    </div>
+  </div>
+
+  <!-- Mobile Filter Bottom Sheet -->
+  <div id="mobileFilterSheet" style="display:none">
+    <!-- Scrim -->
+    <div id="mobileFilterScrim" onclick="closeMobileFilters()"
+         style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3000;backdrop-filter:blur(2px)"></div>
+    <!-- Sheet -->
+    <div id="mobileFilterDrawer" style="
+      position:fixed;bottom:0;left:0;right:0;z-index:3001;
+      background:var(--panel);border-radius:18px 18px 0 0;
+      border-top:2px solid var(--a);
+      padding:0 0 env(safe-area-inset-bottom,16px);
+      box-shadow:0 -8px 40px rgba(0,0,0,.6);
+      transform:translateY(100%);transition:transform .28s cubic-bezier(.32,1,.6,1);
+      max-height:90dvh;overflow-y:auto;
+    ">
+      <!-- Drag handle -->
+      <div style="display:flex;justify-content:center;padding:10px 0 4px">
+        <div style="width:36px;height:4px;background:var(--bb);border-radius:2px"></div>
+      </div>
+      <!-- Header row -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 16px 12px">
+        <div style="font-size:14px;font-weight:700;color:var(--t)">⊞ Filters &amp; Search</div>
+        <button onclick="closeMobileFilters()"
+                style="background:none;border:1px solid var(--b);border-radius:6px;color:var(--m);cursor:pointer;font-size:13px;padding:4px 10px">
+          Done
+        </button>
+      </div>
+
+      <div style="padding:0 16px 8px;display:flex;flex-direction:column;gap:14px">
+
+        <!-- Location search -->
+        <div>
+          <div style="font-size:10px;color:var(--m);font-family:var(--mo);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Location</div>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="mobileLocationSearch" placeholder="Search city or address…"
+                   style="flex:1;height:40px;border-radius:8px;border:1px solid var(--b);background:var(--card);color:var(--t);font-size:13px;padding:0 10px"
+                   onkeydown="if(event.key==='Enter'){searchLocationMobile();closeMobileFilters()}"/>
+            <button onclick="searchLocationMobile();closeMobileFilters()"
+                    style="height:40px;padding:0 16px;background:var(--a);color:#000;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">
+              Go
+            </button>
+          </div>
+        </div>
+
+        <!-- Network -->
+        <div>
+          <div style="font-size:10px;color:var(--m);font-family:var(--mo);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Network</div>
+          <select id="mfNetwork" onchange="syncMobileFilter('network',this.value)"
+                  style="width:100%;height:40px;border-radius:8px;border:1px solid var(--b);background:var(--card);color:var(--t);font-size:13px;padding:0 10px">
+            <option value="">All Networks</option>
+          </select>
+        </div>
+
+        <!-- Level + Connector -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <div style="font-size:10px;color:var(--m);font-family:var(--mo);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Level</div>
+            <select id="mfLevel" onchange="syncMobileFilter('level',this.value)"
+                    style="width:100%;height:40px;border-radius:8px;border:1px solid var(--b);background:var(--card);color:var(--t);font-size:13px;padding:0 8px">
+              <option value="">All</option>
+              <option value="1">Level 1</option>
+              <option value="2">Level 2</option>
+              <option value="3">DC Fast</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--m);font-family:var(--mo);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Connector</div>
+            <select id="mfConnector" onchange="syncMobileFilter('connector',this.value)"
+                    style="width:100%;height:40px;border-radius:8px;border:1px solid var(--b);background:var(--card);color:var(--t);font-size:13px;padding:0 8px">
+              <option value="">All</option>
+              <option value="J1772">J1772</option>
+              <option value="CCS">CCS</option>
+              <option value="CHAdeMO">CHAdeMO</option>
+              <option value="NACS">NACS</option>
+              <option value="Type 2">Type 2</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Min kW slider -->
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+            <div style="font-size:10px;color:var(--m);font-family:var(--mo);text-transform:uppercase;letter-spacing:.8px">Min kW</div>
+            <div style="font-size:12px;font-weight:700;color:var(--a);font-family:var(--mo)" id="mfKwVal">0kW</div>
+          </div>
+          <input type="range" id="mfMinKw" min="0" max="350" step="10" value="0"
+                 style="width:100%;accent-color:var(--a);height:6px"
+                 oninput="document.getElementById('mfKwVal').textContent=this.value+'kW';syncMobileFilter('minKw',+this.value)"/>
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--m);font-family:var(--mo);margin-top:2px">
+            <span>0</span><span>50</span><span>100</span><span>150</span><span>250</span><span>350kW</span>
+          </div>
+        </div>
+
+        <!-- Favorites toggle -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0">
+          <span style="font-size:13px;color:var(--t)">★ Favorites only</span>
+          <label class="tog">
+            <input type="checkbox" id="mfFavOnly" onchange="syncMobileFilter('favOnly',this.checked)"/>
+            <div class="tog-track"></div><div class="tog-thumb"></div>
+          </label>
+        </div>
+
+        <!-- Cheapest button -->
+        <button onclick="openCheapestFromMobile()"
+                style="width:100%;height:44px;background:rgba(255,170,0,.12);color:#ffaa00;border:1px solid rgba(255,170,0,.35);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.3px">
+          🏆 Find Cheapest in View
+        </button>
+
+        <!-- Clear -->
+        <button onclick="clearFiltersMobile()"
+                style="width:100%;height:40px;background:none;color:var(--m);border:1px solid var(--b);border-radius:10px;font-size:13px;cursor:pointer">
+          ✕ Clear All Filters
+        </button>
+
+      </div>
+      <div style="height:8px"></div>
+    </div>
   </div>
 
   <!-- Main -->
@@ -579,194 +861,220 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
 
-      <!-- Vehicle -->
-      <div class="sb-sec">
-        <div class="sb-label">Vehicle</div>
-        <select class="inp" id="vehicleSelect" onchange="onVehicleChange()"></select>
-        <div class="vstats" id="vstats"></div>
+      <!-- Tab bar -->
+      <div class="sb-tabs">
+        <button class="sb-tab active" id="tabSession" onclick="switchTab('session')">
+          ⚡ Session
+        </button>
+        <button class="sb-tab" id="tabCharger" onclick="switchTab('charger')">
+          📍 Charger
+          <span class="sb-tab-dot" id="chargerTabDot"></span>
+        </button>
       </div>
 
-      <!-- Selected Charger -->
-      <div class="sb-sec">
-        <div class="sb-label">
-          Charger
-          <span class="lright" id="chargerCount">← click map pin</span>
-        </div>
-        <div class="charger-sel empty" id="chargerCard">
-          <span>📍 Click a charger on the map</span>
-        </div>
-      </div>
+      <!-- Two-panel container -->
+      <div class="sb-panels">
 
-      <!-- Mode -->
-      <div class="sb-sec">
-        <div class="sb-label">Calculation Mode</div>
-        <div class="mode-row">
-          <button class="mode-btn active" id="modeTime" onclick="setMode('time')">⏱ Time</button>
-          <button class="mode-btn" id="modePct" onclick="setMode('percent')">🔋 % Range</button>
-        </div>
-      </div>
+        <!-- ═══ SESSION PANEL ═══ -->
+        <div class="sb-panel" id="panelSession">
 
-      <!-- Inputs -->
-      <div class="sb-sec" id="inputSec">
-        <!-- populated by setMode() -->
-      </div>
+          <!-- Vehicle -->
+          <div class="sb-sec">
+            <div class="sb-label">Vehicle</div>
+            <select class="inp" id="vehicleSelect" onchange="onVehicleChange()"></select>
+            <div class="vstats" id="vstats"></div>
+          </div>
 
-      <!-- Subscription -->
-      <div class="sb-sec">
-        <div class="sb-label">Subscription / Membership</div>
-        <select class="inp" id="subSelect" onchange="onSubChange()"></select>
-        <div id="subDetails" style="margin-top:4px"></div>
-      </div>
-
-      <!-- Pricing Accordion -->
-      <div class="acc-header" onclick="toggleAcc('pricing')">
-        <div class="acc-title">⚡ Pricing / TOU Schedule</div>
-        <div class="acc-right">
-          <span class="acc-summary" id="pricingSummary"></span>
-          <span class="acc-chevron" id="pricingChev">▶</span>
-        </div>
-      </div>
-      <div id="pricingBody" style="display:none">
-        <div class="acc-body">
-          <!-- TOU intervals -->
-          <div id="touTable"></div>
-          <!-- Flat rates -->
-          <div class="flat-grid">
-            <div class="inp-group">
-              <span class="inp-sub">Default $/kWh</span>
-              <input class="inp-sm" type="number" step="0.01" id="pDefaultKwh" oninput="syncPricing()"/>
-            </div>
-            <div class="inp-group">
-              <span class="inp-sub">Default $/hr</span>
-              <input class="inp-sm" type="number" step="0.01" id="pDefaultHr" oninput="syncPricing()"/>
-            </div>
-            <div class="inp-group">
-              <span class="inp-sub">Min Fee $</span>
-              <input class="inp-sm" type="number" step="0.01" id="pMinFee" oninput="syncPricing()"/>
+          <!-- Mode -->
+          <div class="sb-sec">
+            <div class="sb-label">Session Mode</div>
+            <div class="mode-row">
+              <button class="mode-btn active" id="modeTime" onclick="setMode('time')">⏱ Time</button>
+              <button class="mode-btn" id="modePct" onclick="setMode('percent')">🔋 % Range</button>
             </div>
           </div>
-          <div class="flat-grid mt4">
-            <div class="inp-group" style="grid-column:span 2">
-              <span class="inp-sub">Min fee threshold (min)</span>
-              <input class="inp-sm" type="number" step="1" id="pMinThresh" oninput="syncPricing()"/>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:5px">
-            <button class="save-btn" id="copyStatsBtn" onclick="copyChargerStats()" style="margin-top:0" title="Copy all pricing & parking settings to clipboard">
-              📋 Copy Stats
-            </button>
-            <button class="save-btn" id="pasteStatsBtn" onclick="pasteChargerStats()" style="margin-top:0;opacity:.5;cursor:not-allowed" disabled title="No stats copied yet">
-              📌 Paste Stats
-            </button>
-          </div>
-          <button class="save-btn" id="savePricingBtn" onclick="savePricingToFirebase()" style="display:none">
-            💾 Save to community database
-          </button>
-        </div>
-      </div>
 
-      <!-- Parking Accordion -->
-      <div class="acc-header" onclick="toggleAcc('parking')">
-        <div class="acc-title">🅿 Parking / Garage Fees</div>
-        <div class="acc-right">
-          <span class="acc-summary" id="parkingSummary"></span>
-          <span class="acc-chevron" id="parkingChev">▶</span>
-        </div>
-      </div>
-      <div id="parkingBody" style="display:none">
-        <div class="acc-body">
-          <div class="park-toggle-row">
-            <span style="font-size:11px">Enable parking fees</span>
-            <label class="tog">
-              <input type="checkbox" id="parkEnabled" onchange="onParkToggle()"/>
-              <div class="tog-track"></div><div class="tog-thumb"></div>
-            </label>
+          <!-- Inputs (duration / SoC) -->
+          <div class="sb-sec" id="inputSec">
+            <!-- populated by setMode() -->
           </div>
-          <div id="parkFields" style="display:none">
-            <div class="park-type-row">
-              <button class="park-type-btn active" id="ptTimedBtn" onclick="setParkType('timed')">Tiered Hourly</button>
-              <button class="park-type-btn" id="ptFlatBtn" onclick="setParkType('flat')">Flat Fee</button>
+
+          <!-- Subscription -->
+          <div class="sb-sec">
+            <div class="sb-label">Membership / Plan</div>
+            <select class="inp" id="subSelect" onchange="onSubChange()"></select>
+            <div id="subDetails" style="margin-top:4px"></div>
+          </div>
+
+          <!-- Result + live session -->
+          <div class="sb-sec" style="padding-bottom:8px;flex:1">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:9px;font-family:var(--mo);color:var(--m);text-transform:uppercase;letter-spacing:1px">Cost Estimate</div>
+              <div style="display:flex;gap:4px">
+                <button class="mode-btn" id="liveStartBtn" onclick="startLiveSession()" style="height:20px;font-size:9px;padding:0 7px">▶ Live</button>
+                <button class="mode-btn" id="liveStopBtn" onclick="stopLiveSession()" style="height:20px;font-size:9px;padding:0 7px;display:none">■ Stop</button>
+              </div>
             </div>
-            <div id="parkTimedFields">
-              <div class="inp-row three">
-                <div class="inp-group">
-                  <span class="inp-sub">1st Hr $/hr</span>
-                  <input class="inp-sm" type="number" step="0.50" id="pFirstHr" value="3" oninput="syncParking()"/>
+            <div id="livePanel" style="display:none;background:var(--card);border:1px solid rgba(0,232,122,.35);border-radius:6px;padding:6px 8px;margin-bottom:5px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div>
+                  <div style="font-size:9px;color:var(--m);font-family:var(--mo);letter-spacing:1px">LIVE COST</div>
+                  <div id="liveCost" style="font-size:22px;font-weight:700;color:var(--a);font-family:var(--mo);line-height:1">$0.00</div>
                 </div>
-                <div class="inp-group">
-                  <span class="inp-sub">After 1st $/hr</span>
-                  <input class="inp-sm" type="number" step="0.50" id="pSubseqHr" value="2" oninput="syncParking()"/>
-                </div>
-                <div class="inp-group">
-                  <span class="inp-sub">Free min</span>
-                  <input class="inp-sm" type="number" step="5" id="pFreeMin" value="0" oninput="syncParking()"/>
+                <div style="text-align:right">
+                  <div style="font-size:9px;color:var(--m);font-family:var(--mo)">ELAPSED</div>
+                  <div id="liveTime" style="font-size:14px;color:var(--t);font-family:var(--mo)">0:00</div>
+                  <div id="liveKwh" style="font-size:10px;color:var(--m2);font-family:var(--mo)">0.00 kWh</div>
                 </div>
               </div>
             </div>
-            <div id="parkFlatFields" style="display:none">
-              <div class="inp-group">
-                <span class="inp-sub">Flat fee $</span>
-                <input class="inp-sm" type="number" step="0.50" id="pFlatFee" value="5" oninput="syncParking()"/>
+            <!-- Charger needed nudge — shown in session panel when no charger selected -->
+            <div id="noChargerNudge" style="background:var(--card);border:1px dashed var(--b);border-radius:6px;padding:8px 10px;margin-bottom:6px;display:none">
+              <div style="font-size:10px;color:var(--m2);line-height:1.5">
+                📍 No charger selected — showing estimate only.<br>
+                <span onclick="switchTab('charger')" style="color:var(--a);cursor:pointer;text-decoration:underline">Select a charger →</span>
+              </div>
+            </div>
+            <div id="resultPanel" class="result-panel" style="display:none"></div>
+            <div id="resultPlaceholder" style="text-align:center;padding:14px 0;color:var(--m);font-size:11px">
+              Select a vehicle to see estimate
+            </div>
+          </div>
+
+        </div><!-- /panelSession -->
+
+        <!-- ═══ CHARGER PANEL ═══ -->
+        <div class="sb-panel" id="panelCharger">
+
+          <!-- Charger card -->
+          <div class="sb-sec">
+            <div class="sb-label">
+              Selected Charger
+              <span class="lright" id="chargerCount">← click map pin</span>
+            </div>
+            <div class="charger-sel empty" id="chargerCard">
+              <span>📍 Click a charger on the map</span>
+            </div>
+          </div>
+
+          <!-- Pricing Accordion -->
+          <div class="acc-header" onclick="toggleAcc('pricing')">
+            <div class="acc-title">⚡ Pricing / TOU Schedule</div>
+            <div class="acc-right">
+              <span class="acc-summary" id="pricingSummary"></span>
+              <span class="acc-chevron" id="pricingChev">▶</span>
+            </div>
+          </div>
+          <div id="pricingBody" style="display:none">
+            <div class="acc-body">
+              <div id="touTable"></div>
+              <div class="flat-grid">
+                <div class="inp-group">
+                  <span class="inp-sub">Default $/kWh</span>
+                  <input class="inp-sm" type="number" step="0.01" id="pDefaultKwh" oninput="syncPricing()"/>
+                </div>
+                <div class="inp-group">
+                  <span class="inp-sub">Default $/hr</span>
+                  <input class="inp-sm" type="number" step="0.01" id="pDefaultHr" oninput="syncPricing()"/>
+                </div>
+                <div class="inp-group">
+                  <span class="inp-sub">Min Fee $</span>
+                  <input class="inp-sm" type="number" step="0.01" id="pMinFee" oninput="syncPricing()"/>
+                </div>
+              </div>
+              <div class="flat-grid mt4">
+                <div class="inp-group" style="grid-column:span 2">
+                  <span class="inp-sub">Min fee threshold (min)</span>
+                  <input class="inp-sm" type="number" step="1" id="pMinThresh" oninput="syncPricing()"/>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:5px">
+                <button class="save-btn" id="copyStatsBtn" onclick="copyChargerStats()" style="margin-top:0">📋 Copy Stats</button>
+                <button class="save-btn" id="pasteStatsBtn" onclick="pasteChargerStats()" style="margin-top:0;opacity:.5;cursor:not-allowed" disabled>📌 Paste Stats</button>
+              </div>
+              <button class="save-btn" id="savePricingBtn" onclick="savePricingToFirebase()" style="display:none">
+                💾 Save to community database
+              </button>
+            </div>
+          </div>
+
+          <!-- Parking Accordion -->
+          <div class="acc-header" onclick="toggleAcc('parking')">
+            <div class="acc-title">🅿 Parking / Garage Fees</div>
+            <div class="acc-right">
+              <span class="acc-summary" id="parkingSummary"></span>
+              <span class="acc-chevron" id="parkingChev">▶</span>
+            </div>
+          </div>
+          <div id="parkingBody" style="display:none">
+            <div class="acc-body">
+              <div class="park-toggle-row">
+                <span style="font-size:11px">Enable parking fees</span>
+                <label class="tog">
+                  <input type="checkbox" id="parkEnabled" onchange="onParkToggle()"/>
+                  <div class="tog-track"></div><div class="tog-thumb"></div>
+                </label>
+              </div>
+              <div id="parkFields" style="display:none">
+                <div class="park-type-row">
+                  <button class="park-type-btn active" id="ptTimedBtn" onclick="setParkType('timed')">Tiered Hourly</button>
+                  <button class="park-type-btn" id="ptFlatBtn" onclick="setParkType('flat')">Flat Fee</button>
+                </div>
+                <div id="parkTimedFields">
+                  <div class="inp-row three">
+                    <div class="inp-group">
+                      <span class="inp-sub">1st Hr $/hr</span>
+                      <input class="inp-sm" type="number" step="0.50" id="pFirstHr" value="3" oninput="syncParking()"/>
+                    </div>
+                    <div class="inp-group">
+                      <span class="inp-sub">After 1st $/hr</span>
+                      <input class="inp-sm" type="number" step="0.50" id="pSubseqHr" value="2" oninput="syncParking()"/>
+                    </div>
+                    <div class="inp-group">
+                      <span class="inp-sub">Free min</span>
+                      <input class="inp-sm" type="number" step="5" id="pFreeMin" value="0" oninput="syncParking()"/>
+                    </div>
+                  </div>
+                </div>
+                <div id="parkFlatFields" style="display:none">
+                  <div class="inp-group">
+                    <span class="inp-sub">Flat fee $</span>
+                    <input class="inp-sm" type="number" step="0.50" id="pFlatFee" value="5" oninput="syncParking()"/>
+                  </div>
+                </div>
+              </div>
+              <button class="save-btn" id="saveParkingBtn" onclick="savePricingToFirebase()" style="display:none">
+                💾 Save parking to community database
+              </button>
+            </div>
+          </div>
+
+          <!-- Incentives Accordion -->
+          <div class="sb-sec acc-sec" id="incentiveAcc">
+            <div class="acc-header" onclick="toggleAcc('incentive')">
+              <div class="acc-title">&#127873; Incentives &amp; Rebates</div>
+              <div class="acc-right">
+                <span class="acc-summary" id="incentiveSummary"></span>
+                <span class="acc-chevron" id="incentiveChev">&#9658;</span>
+              </div>
+            </div>
+            <div id="incentiveBody" style="display:none">
+              <div class="acc-body">
+                <div style="font-size:10px;color:var(--m2);margin-bottom:8px">
+                  Add utility or government incentives that reduce your net charging cost.
+                </div>
+                <button class="add-row-btn" onclick="showIncentiveLibrary()" style="margin-bottom:8px;height:28px;font-size:11px;border-style:solid;border-color:rgba(0,232,122,.3);color:var(--a)">
+                  Browse known programs&#8230;
+                </button>
+                <div id="incentiveList"></div>
+                <button class="add-row-btn" onclick="addCustomIncentive()" style="margin-top:4px">+ Add custom incentive</button>
               </div>
             </div>
           </div>
-          <button class="save-btn" id="saveParkingBtn" onclick="savePricingToFirebase()" style="display:none">
-            💾 Save parking to community database
-          </button>
-        </div>
-      </div>
 
-      <!-- Incentives Accordion -->
-      <div class="sb-sec acc-sec" id="incentiveAcc">
-        <div class="acc-header" onclick="toggleAcc('incentive')">
-          <div class="acc-title">&#127873; Incentives &amp; Rebates</div>
-          <div class="acc-right">
-            <span class="acc-summary" id="incentiveSummary"></span>
-            <span class="acc-chevron" id="incentiveChev">&#9658;</span>
-          </div>
-        </div>
-        <div id="incentiveBody" style="display:none">
-          <div class="acc-body">
-            <div style="font-size:10px;color:var(--m2);margin-bottom:8px">
-              Add utility or government incentives that reduce your net charging cost.
-              Time-windowed rebates are calculated against your actual kWh in that window.
-            </div>
-            <button class="add-row-btn" onclick="showIncentiveLibrary()" style="margin-bottom:8px;height:28px;font-size:11px;border-style:solid;border-color:rgba(0,232,122,.3);color:var(--a)">
-              Browse known programs&#8230;
-            </button>
-            <div id="incentiveList"></div>
-            <button class="add-row-btn" onclick="addCustomIncentive()" style="margin-top:4px">+ Add custom incentive</button>
-          </div>
-        </div>
-      </div>
+        </div><!-- /panelCharger -->
 
-      <!-- Always-on result + live session -->
-      <div class="sb-sec" style="padding-bottom:0">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-          <div style="font-size:9px;font-family:var(--mo);color:var(--m);text-transform:uppercase;letter-spacing:1px">Estimated Cost</div>
-          <div style="display:flex;gap:4px">
-            <button class="mode-btn" id="liveStartBtn" onclick="startLiveSession()" style="height:20px;font-size:9px;padding:0 7px">▶ Live</button>
-            <button class="mode-btn" id="liveStopBtn" onclick="stopLiveSession()" style="height:20px;font-size:9px;padding:0 7px;display:none">■ Stop</button>
-          </div>
-        </div>
-        <div id="livePanel" style="display:none;background:var(--card);border:1px solid rgba(0,232,122,.35);border-radius:6px;padding:6px 8px;margin-bottom:5px">
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div>
-              <div style="font-size:9px;color:var(--m);font-family:var(--mo);letter-spacing:1px">LIVE COST</div>
-              <div id="liveCost" style="font-size:22px;font-weight:700;color:var(--a);font-family:var(--mo);line-height:1">$0.00</div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-size:9px;color:var(--m);font-family:var(--mo)">ELAPSED</div>
-              <div id="liveTime" style="font-size:14px;color:var(--t);font-family:var(--mo)">0:00</div>
-              <div id="liveKwh" style="font-size:10px;color:var(--m2);font-family:var(--mo)">0.00 kWh</div>
-            </div>
-          </div>
-        </div>
-        <div id="resultPanel" class="result-panel" style="display:none"></div>
-        <div id="resultPlaceholder" style="text-align:center;padding:14px 0;color:var(--m);font-size:11px">
-          Select a vehicle &amp; charger to see live estimate
-        </div>
-      </div>
+      </div><!-- /sb-panels -->
 
     </aside>
 
@@ -775,6 +1083,20 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
       <div class="map-loading" id="mapLoader" style="display:none">
         <div class="spinner" style="width:12px;height:12px;border-color:rgba(0,232,122,.3);border-top-color:var(--a);border-width:2px;animation:spin .8s linear infinite;border-style:solid;border-radius:50%"></div>
         Loading chargers…
+      </div>
+      <!-- Price label legend -->
+      <div id="priceLegend" style="
+        position:absolute;bottom:28px;left:8px;z-index:1000;
+        background:rgba(12,13,20,.88);backdrop-filter:blur(6px);
+        border:1px solid rgba(255,255,255,.08);border-radius:6px;
+        padding:5px 9px;font-family:var(--mo);font-size:9px;
+        display:none;pointer-events:none;line-height:1.9;
+      ">
+        <div style="color:var(--t);font-weight:700;margin-bottom:1px;font-size:10px">Price labels</div>
+        <div><span style="color:#00e87a">◆</span> Community-verified</div>
+        <div><span style="color:#ffaa00">~</span> Estimated</div>
+        <div><span style="color:#666">?</span> Unknown / free</div>
+        <div style="margin-top:2px;color:var(--m);font-size:8px;border-top:1px solid rgba(255,255,255,.06);padding-top:3px">Closest 30 in view · zoom 12+</div>
       </div>
     </div>
   </div>
@@ -1343,6 +1665,8 @@ function saveSettings() {
       localStorage.setItem('ev_fb_config', raw);
       initFirebase();
   initIncentives();
+  updateNoChargerNudge();
+  initMobileFilterBtn();
       showToast('Firebase config updated');
     } catch(e) { alert('Invalid JSON in Firebase config.'); return; }
   }
@@ -1505,6 +1829,12 @@ function buildNetworkFilter(chargers) {
     if (n === cur) o.selected = true;
     sel.appendChild(o);
   });
+  // Mirror to mobile filter sheet
+  const mSel = document.getElementById('mfNetwork');
+  if (mSel) {
+    mSel.innerHTML = sel.innerHTML;
+    mSel.value = S.filters.network || '';
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -1722,6 +2052,8 @@ function initMap(lat, lng) {
   });
   S.map.addLayer(S.cluster);
   S.map.on('moveend', scheduleChargerLoad);
+  S.map.on('zoomend', () => { scheduleChargerLoad(); setTimeout(updatePriceLabels, 80); });
+  S.map.on('moveend', () => setTimeout(updatePriceLabels, 80));
   loadChargersForView();
 }
 
@@ -1743,11 +2075,70 @@ const NETWORK_MARKER = {
   'Walmart':           {short:'WMT', color:'#0071ce'},
 };
 
-function makeMarkerIcon(charger, selected) {
+// Price-pill marker set: charger IDs that currently show price labels
+const S_PRICE_IDS = new Set();
+
+function makeMarkerIcon(charger, selected, pricingOverride) {
   const level = getChargerLevel(charger);
   const network = getChargerNetwork(charger);
   const nm = NETWORK_MARKER[network];
   const levelColors = {1:'#8587a6', 2:'#4b9fff', 3:'#00e87a'};
+
+  // Price pill mode — show when in set or selected
+  const pricing = pricingOverride || (S_PRICE_IDS.has(charger.ID) ? estimatePricing(charger) : null);
+  if (pricing) {
+    const src = pricing.source || 'default';
+    const isCommunity = src === 'community' || src === 'local';
+    const isEst = src === 'network_estimate' || src === 'brand_default';
+    const cls = selected ? 'selected' : isCommunity ? 'community' : isEst ? 'estimated' : 'unknown';
+    const kw = getEffectiveChargerKw(charger);
+    const isCheapest = S_CHEAPEST_ID === charger.ID;
+
+    // Calculate session cost using current user settings
+    let costLabel = '?';
+    let sublabel = '';
+    if (S.vehicle) {
+      try {
+        const dMin = S.mode === 'time' ? getDurationInMinutes() : 0;
+        const r = runCalc(
+          S.vehicle, kw > 0 ? kw : 50, pricing, {enabled:false},
+          S.mode, dMin,
+          S.socStart ?? 20, S.socEnd ?? 80,
+          S.sub?.discount || 0, getStartHour(),
+          S.sub?.sessionFee || 0
+        );
+        costLabel = '$' + r.total.toFixed(2);
+        sublabel = r.totalKwh.toFixed(1) + 'kWh';
+      } catch(e) {
+        costLabel = pricing.kwh > 0 ? '$' + pricing.kwh.toFixed(2) + '/kWh' : '?';
+      }
+    } else {
+      costLabel = pricing.kwh > 0 ? '$' + pricing.kwh.toFixed(2) + '/kWh'
+               : pricing.hr > 0 ? '$' + pricing.hr.toFixed(2) + '/hr' : 'Free?';
+    }
+
+    // Shorten network name to fit
+    const netShort = network.length > 12 ? network.substring(0,11) + '…' : network;
+    const communityDot = isCommunity ? '<div class="price-marker-dot"></div>' : '';
+    const crownHtml = isCheapest ? '<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-size:11px;line-height:1">👑</div>' : '';
+    const caretCls = selected ? 'selected' : isCommunity ? 'community' : isEst ? 'estimated' : '';
+
+    const html = `<div class="price-marker">
+      <div class="price-marker-pill ${cls}${isCheapest?' cheapest':''}${selected?' selected':''}">
+        ${crownHtml}
+        ${communityDot}
+        <div class="price-marker-rate ${cls}">${costLabel}</div>
+        <div class="price-marker-kw">${sublabel || (kw > 0 ? kw+'kW' : (level===3?'DC':'AC'))}</div>
+        <div class="price-marker-net">${netShort}</div>
+      </div>
+      <div class="price-marker-caret ${caretCls}"></div>
+    </div>`;
+
+    const w = Math.max(56, costLabel.length * 8 + 18);
+    return L.divIcon({ html, className:'', iconSize:[w, 48], iconAnchor:[w/2, 48] });
+  }
+
+  // Standard dot/network icon
   const bgColor = selected ? '#ffaa00' : (nm ? nm.color : levelColors[level] || '#8587a6');
   const lbl = nm ? nm.short : (level === 3 ? '⚡' : (level === 2 ? 'L2' : 'L1'));
   const size = selected ? 34 : (nm ? 28 : 22);
@@ -1759,9 +2150,57 @@ function makeMarkerIcon(charger, selected) {
   });
 }
 
+// Max chargers to show price labels for (perf guard)
+const PRICE_LABEL_MAX = 30;
+const PRICE_LABEL_MIN_ZOOM = 12;
+
+function updatePriceLabels() {
+  if (!S.map || !S.chargers.length) return;
+  const zoom = S.map.getZoom();
+  const bounds = S.map.getBounds();
+  const center = bounds.getCenter();
+
+  S_PRICE_IDS.clear();
+
+  if (zoom >= PRICE_LABEL_MIN_ZOOM) {
+    // Sort visible chargers by distance from center, take closest PRICE_LABEL_MAX
+    const visible = S.chargers.filter(c => {
+      const lat = c.AddressInfo?.Latitude;
+      const lng = c.AddressInfo?.Longitude;
+      return lat && lng && bounds.contains([lat, lng]) && matchesFilters(c);
+    });
+
+    // Sort by distance from center
+    visible.sort((a, b) => {
+      const da = Math.hypot(a.AddressInfo.Latitude - center.lat, a.AddressInfo.Longitude - center.lng);
+      const db = Math.hypot(b.AddressInfo.Latitude - center.lat, b.AddressInfo.Longitude - center.lng);
+      return da - db;
+    });
+
+    visible.slice(0, PRICE_LABEL_MAX).forEach(c => S_PRICE_IDS.add(c.ID));
+  }
+
+  // Re-render icons for all markers that are affected
+  Object.entries(S.markerMap).forEach(([id, marker]) => {
+    const numId = parseInt(id);
+    const c = S.chargers.find(x => x.ID === numId);
+    if (!c) return;
+    const isSelected = S.selectedCharger && S.selectedCharger.ID === numId;
+    if (!isSelected) {
+      marker.setIcon(makeMarkerIcon(c, false));
+    }
+  });
+
+  // Show legend only when price labels are visible
+  const legend = document.getElementById('priceLegend');
+  if (legend) legend.style.display = zoom >= PRICE_LABEL_MIN_ZOOM && S_PRICE_IDS.size > 0 ? '' : 'none';
+}
+
 function renderMarkers(chargers) {
   S.cluster.clearLayers();
   S.markerMap = {};
+  S_PRICE_IDS.clear();
+  S_CHEAPEST_ID = null;  // reset crown on new load
   const filtered = chargers.filter(matchesFilters);
   filtered.forEach(c => {
     const lat = c.AddressInfo?.Latitude;
@@ -1778,6 +2217,8 @@ function renderMarkers(chargers) {
   } else {
     hideMapMsg();
   }
+  // Apply price labels after markers are in the cluster
+  setTimeout(updatePriceLabels, 50);
 }
 
 function buildPopup(c) {
@@ -1789,7 +2230,16 @@ function buildPopup(c) {
   const connectors = getChargerConnectors(c).slice(0,3).join(', ');
   const address = [c.AddressInfo?.Title, c.AddressInfo?.Town, c.AddressInfo?.StateOrProvince].filter(Boolean).join(', ');
   const pricing = estimatePricing(c);
-  const costLine = pricing.kwh > 0 ? `~$${pricing.kwh}/kWh` : (pricing.hr > 0 ? `~$${pricing.hr}/hr` : 'Free / Unknown');
+  const isCommunityPrice = pricing.source === 'community' || pricing.source === 'local';
+  const isEst = pricing.source === 'network_estimate' || pricing.source === 'brand_default';
+  const costLabel = pricing.kwh > 0
+    ? `$${pricing.kwh.toFixed(2)}/kWh`
+    : pricing.hr > 0 ? `$${pricing.hr.toFixed(2)}/hr` : 'Free / Unknown';
+  const sourceTag = isCommunityPrice
+    ? `<span style="background:var(--ad);color:var(--a);border:1px solid rgba(0,232,122,.25);border-radius:3px;padding:1px 4px;font-size:9px;font-family:var(--mo);margin-left:4px">◆ community</span>`
+    : isEst
+      ? `<span style="background:rgba(255,170,0,.08);color:#ffaa00;border:1px solid rgba(255,170,0,.2);border-radius:3px;padding:1px 4px;font-size:9px;font-family:var(--mo);margin-left:4px">~ est.</span>`
+      : `<span style="background:rgba(120,120,160,.08);color:#888;border:1px solid rgba(120,120,160,.15);border-radius:3px;padding:1px 4px;font-size:9px;font-family:var(--mo);margin-left:4px">? unknown</span>`;
   const container = document.createElement('div');
   container.className = 'popup-inner';
   container.innerHTML = `
@@ -1805,7 +2255,10 @@ function buildPopup(c) {
       <span class="popup-spec hi">${level}</span>
       ${connectors ? `<span class="popup-spec">${connectors}</span>` : ''}
     </div>
-    <div class="popup-cost">${costLine}${pricing.source==='default'?' (est.)':''}</div>
+    <div class="popup-cost" style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">
+      <span style="color:${isCommunityPrice?'var(--a)':isEst?'#ffaa00':'#888'};font-family:var(--mo);font-weight:700">${costLabel}</span>
+      ${sourceTag}
+    </div>
     ${c.UsageType?.IsMembershipRequired ? '<div style="font-size:10px;color:var(--w);margin-bottom:4px">🔑 Membership required</div>' : ''}
     ${c.UsageType?.IsPayAtLocation ? '<div style="font-size:10px;color:var(--info);margin-bottom:4px">💳 Pay at location</div>' : ''}
     <button class="popup-btn" onclick="selectChargerById(${c.ID})">Use This Charger →</button>
@@ -1863,6 +2316,12 @@ async function selectCharger(c, marker) {
   updatePricingSummary();
   updateParkingSummary();
   document.getElementById('savePricingBtn').style.display = 'none';
+  const _pb2 = document.getElementById('saveParkingBtn');
+  if (_pb2) _pb2.style.display = 'none';
+  updateChargerTabDot();
+  updateNoChargerNudge();
+  // On mobile, auto-switch to Charger tab when a pin is tapped
+  if (_isMobile()) switchTab('charger');
 }
 
 function matchesFilters(c) {
@@ -1889,6 +2348,7 @@ function applyFilters() {
   S.filters.network = document.getElementById('fNetwork').value;
   S.filters.level = document.getElementById('fLevel').value;
   S.filters.connector = document.getElementById('fConnector').value;
+  updateFilterBadge();
   S.filters.minKw = parseInt(document.getElementById('fMinKw').value) || 0;
   renderMarkers(S.chargers);
 }
@@ -2322,7 +2782,12 @@ function setMode(m) {
 let _autoCalcTimer = null;
 function scheduleAutoCalc() {
   clearTimeout(_autoCalcTimer);
-  _autoCalcTimer = setTimeout(calculate, 350);
+  _autoCalcTimer = setTimeout(() => {
+    calculate();
+    // Refresh cheapest panel + price labels if open or labels showing
+    if (_cheapestOpen) runCheapestSearch();
+    else updatePriceLabels();
+  }, 350);
 }
 
 function getDurationInMinutes() {
@@ -3108,6 +3573,301 @@ function showIncentiveLibrary() {
 function closeIncentiveModal() {
   document.getElementById('incentiveModal').style.display = 'none';
 }
+
+// ═══════════════════════════════════════════════
+// CHEAPEST CHARGER FINDER
+// ═══════════════════════════════════════════════
+
+let S_CHEAPEST_ID = null;  // ID of current cheapest charger (for crown icon)
+let _cheapestOpen = false;
+
+function toggleCheapestPanel() {
+  _cheapestOpen = !_cheapestOpen;
+  const panel = document.getElementById('cheapestPanel');
+  const btn = document.getElementById('cheapestBtn');
+  panel.style.display = _cheapestOpen ? '' : 'none';
+  btn.style.background = _cheapestOpen ? 'rgba(255,170,0,.25)' : 'rgba(255,170,0,.12)';
+  if (_cheapestOpen) runCheapestSearch();
+}
+
+function calcChargerSessionCost(c) {
+  // Returns {total, kw, pricing, isCommunity, source} or null if can't calc
+  if (!S.vehicle) return null;
+  const pricing = estimatePricing(c);
+  const src = pricing.source || 'default';
+  const isCommunity = src === 'community' || src === 'local';
+  const kw = getEffectiveChargerKw(c);
+  try {
+    const r = runCalc(
+      S.vehicle, kw > 0 ? kw : 50, pricing, {enabled: false},
+      S.mode, S.mode === 'time' ? getDurationInMinutes() : 0,
+      S.socStart ?? 20, S.socEnd ?? 80,
+      S.sub?.discount || 0, getStartHour(),
+      S.sub?.sessionFee || 0
+    );
+    return { total: r.total, totalKwh: r.totalKwh, duration: r.duration, kw, pricing, isCommunity, src };
+  } catch(e) { return null; }
+}
+
+function runCheapestSearch() {
+  if (!S.map || !S.chargers.length) return;
+  const el = document.getElementById('cheapestList');
+  if (!el) return;
+
+  const communityOnly = document.getElementById('cheapCommunityOnly')?.checked;
+  const dcOnly = document.getElementById('cheapDcOnly')?.checked;
+  const bounds = S.map.getBounds();
+
+  if (!S.vehicle) {
+    el.innerHTML = '<div style="color:var(--w);font-size:11px;padding:8px 0">⚠ Select a vehicle first to compare costs</div>';
+    return;
+  }
+
+  el.innerHTML = '<div style="color:var(--m);font-size:10px;padding:6px 0">Calculating…</div>';
+
+  // Use setTimeout so UI updates before heavy calc
+  setTimeout(() => {
+    const visible = S.chargers.filter(c => {
+      const lat = c.AddressInfo?.Latitude;
+      const lng = c.AddressInfo?.Longitude;
+      if (!lat || !lng || !bounds.contains([lat, lng])) return false;
+      if (!matchesFilters(c)) return false;
+      if (dcOnly && getChargerLevel(c) !== 3) return false;
+      return true;
+    });
+
+    const results = visible.map(c => {
+      const calc = calcChargerSessionCost(c);
+      if (!calc) return null;
+      if (communityOnly && !calc.isCommunity) return null;
+      return { c, ...calc };
+    }).filter(Boolean);
+
+    if (!results.length) {
+      const reason = communityOnly ? 'No community-verified chargers in view' : 'No chargers with pricing data in view';
+      el.innerHTML = `<div style="color:var(--m);font-size:11px;padding:8px 0">${reason}</div>`;
+      S_CHEAPEST_ID = null;
+      updatePriceLabels();
+      return;
+    }
+
+    // Sort by total session cost
+    results.sort((a, b) => a.total - b.total);
+
+    // Mark cheapest
+    S_CHEAPEST_ID = results[0].c.ID;
+    updatePriceLabels();
+
+    // Pan map to cheapest if it's off screen
+    const cheapLat = results[0].c.AddressInfo?.Latitude;
+    const cheapLng = results[0].c.AddressInfo?.Longitude;
+
+    const fmtTime = m => m >= 60 ? Math.floor(m/60)+'h '+Math.round(m%60)+'m' : Math.round(m)+'m';
+
+    el.innerHTML = results.slice(0, 10).map((r, i) => {
+      const name = r.c.AddressInfo?.Title || 'Charging Station';
+      const addr = [r.c.AddressInfo?.Town, r.c.AddressInfo?.StateOrProvince].filter(Boolean).join(', ');
+      const isWinner = i === 0;
+      const network = getChargerNetwork(r.c);
+      const srcBadge = r.isCommunity
+        ? `<span style="color:var(--a);font-size:8px">◆</span>`
+        : `<span style="color:#ffaa00;font-size:8px">~</span>`;
+      return `
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer"
+           onclick="jumpToCharger(${r.c.ID})">
+        <div style="font-size:14px;width:22px;text-align:center;flex-shrink:0">${isWinner ? '👑' : '#'+(i+1)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:var(--t);font-weight:${isWinner?700:400};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+          <div style="font-size:9px;color:var(--m2)">${network} · ${addr}</div>
+          <div style="font-size:9px;color:var(--m);margin-top:1px">${r.totalKwh.toFixed(1)}kWh · ${fmtTime(r.duration)} · ${r.kw}kW ${srcBadge}</div>
+        </div>
+        <div style="font-size:16px;font-weight:700;color:${isWinner?'#ffaa00':'var(--a)'};font-family:var(--mo);flex-shrink:0">
+          $${r.total.toFixed(2)}
+        </div>
+      </div>`;
+    }).join('');
+  }, 0);
+}
+
+function jumpToCharger(id) {
+  const c = S.chargers.find(x => x.ID === id);
+  if (!c) return;
+  const lat = c.AddressInfo?.Latitude;
+  const lng = c.AddressInfo?.Longitude;
+  if (lat && lng) S.map.setView([lat, lng], Math.max(S.map.getZoom(), 14));
+  selectCharger(c, S.markerMap[id]);
+  // Close panel on mobile
+  if (window.innerWidth <= 768) toggleCheapestPanel();
+}
+
+// ═══════════════════════════════════════════════
+// MOBILE FILTER SHEET
+// ═══════════════════════════════════════════════
+
+function toggleMobileFilters() {
+  const sheet = document.getElementById('mobileFilterSheet');
+  const isOpen = sheet.style.display !== 'none';
+  if (isOpen) closeMobileFilters();
+  else openMobileFilters();
+}
+
+function openMobileFilters() {
+  const sheet = document.getElementById('mobileFilterSheet');
+  const drawer = document.getElementById('mobileFilterDrawer');
+  // Sync current filter state into mobile controls
+  syncMobileFilterControls();
+  sheet.style.display = '';
+  // Trigger animation on next frame
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      drawer.style.transform = 'translateY(0)';
+    });
+  });
+  document.getElementById('mobileFilterBtn').style.background = 'rgba(0,232,122,.15)';
+}
+
+function closeMobileFilters() {
+  const sheet = document.getElementById('mobileFilterSheet');
+  const drawer = document.getElementById('mobileFilterDrawer');
+  drawer.style.transform = 'translateY(100%)';
+  document.getElementById('mobileFilterBtn').style.background = '';
+  setTimeout(() => { sheet.style.display = 'none'; }, 300);
+}
+
+function syncMobileFilterControls() {
+  // Populate network dropdown from desktop one
+  const desktopNet = document.getElementById('fNetwork');
+  const mobileNet = document.getElementById('mfNetwork');
+  if (desktopNet && mobileNet) {
+    mobileNet.innerHTML = desktopNet.innerHTML;
+    mobileNet.value = S.filters.network || '';
+  }
+  const lv = document.getElementById('mfLevel');
+  if (lv) lv.value = S.filters.level || '';
+  const cn = document.getElementById('mfConnector');
+  if (cn) cn.value = S.filters.connector || '';
+  const kw = document.getElementById('mfMinKw');
+  const kwv = document.getElementById('mfKwVal');
+  if (kw) { kw.value = S.filters.minKw || 0; }
+  if (kwv) kwv.textContent = (S.filters.minKw || 0) + 'kW';
+  const fav = document.getElementById('mfFavOnly');
+  if (fav) fav.checked = !!S.filters.favOnly;
+}
+
+function syncMobileFilter(field, val) {
+  S.filters[field] = val;
+  // Mirror to desktop controls so they stay in sync
+  if (field === 'network') {
+    const d = document.getElementById('fNetwork');
+    if (d) d.value = val;
+  } else if (field === 'level') {
+    const d = document.getElementById('fLevel');
+    if (d) d.value = val;
+  } else if (field === 'connector') {
+    const d = document.getElementById('fConnector');
+    if (d) d.value = val;
+  } else if (field === 'minKw') {
+    const d = document.getElementById('fMinKw');
+    const dv = document.getElementById('fKwVal');
+    if (d) d.value = val;
+    if (dv) dv.textContent = val + 'kW';
+  } else if (field === 'favOnly') {
+    // Handled by toggleFavFilter internally via S.filters
+    S.filters.favOnly = val;
+    const fav = document.getElementById('favToggle');
+    if (fav) fav.classList.toggle('active', val);
+  }
+  applyFilters();
+  updateFilterBadge();
+}
+
+function updateFilterBadge() {
+  const f = S.filters;
+  const active = !!(f.network || f.level || f.connector || f.minKw > 0 || f.favOnly);
+  const badge = document.getElementById('mobileFilterBadge');
+  if (badge) badge.style.display = active ? '' : 'none';
+}
+
+function clearFiltersMobile() {
+  clearFilters();
+  syncMobileFilterControls();
+  updateFilterBadge();
+}
+
+function searchLocationMobile() {
+  const inp = document.getElementById('mobileLocationSearch');
+  if (!inp) return;
+  // Copy value to desktop input and fire the same search
+  const desk = document.getElementById('locationSearch');
+  if (desk) desk.value = inp.value;
+  searchLocation();
+}
+
+function openCheapestFromMobile() {
+  closeMobileFilters();
+  // Small delay so sheet closes first, then open cheapest panel
+  setTimeout(() => {
+    _cheapestOpen = false; // force open
+    toggleCheapestPanel();
+  }, 320);
+}
+
+// Show filter btn on mobile via JS (avoids media query fighting display:none)
+function initMobileFilterBtn() {
+  if (window.innerWidth <= 768) {
+    const btn = document.getElementById('mobileFilterBtn');
+    if (btn) btn.style.display = '';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// PANEL TAB SWITCHING
+// ═══════════════════════════════════════════════
+
+let _activeTab = 'session';
+const _isMobile = () => window.innerWidth <= 768;
+
+function switchTab(tab) {
+  _activeTab = tab;
+  document.getElementById('tabSession').classList.toggle('active', tab === 'session');
+  document.getElementById('tabCharger').classList.toggle('active', tab === 'charger');
+
+  if (_isMobile()) {
+    // Mobile: show only the active panel
+    document.getElementById('panelSession').classList.toggle('sb-panel-hidden', tab !== 'session');
+    document.getElementById('panelCharger').classList.toggle('sb-panel-hidden', tab !== 'charger');
+  }
+  // Desktop: both panels always visible (CSS grid handles it)
+}
+
+function updateChargerTabDot() {
+  // Show green dot on Charger tab when a charger is selected
+  const dot = document.getElementById('chargerTabDot');
+  if (dot) dot.classList.toggle('show', !!S.selectedCharger);
+}
+
+function updateNoChargerNudge() {
+  const el = document.getElementById('noChargerNudge');
+  if (el) el.style.display = S.selectedCharger ? 'none' : '';
+}
+
+// On resize, reset panel visibility for desktop (remove mobile hide classes)
+window.addEventListener('resize', () => {
+  if (!_isMobile()) {
+    document.getElementById('panelSession')?.classList.remove('sb-panel-hidden');
+    document.getElementById('panelCharger')?.classList.remove('sb-panel-hidden');
+  } else {
+    // Re-apply active tab on mobile
+    switchTab(_activeTab);
+  }
+});
+
+// Init: on mobile, hide charger panel by default
+document.addEventListener('DOMContentLoaded', () => {
+  if (_isMobile()) {
+    document.getElementById('panelCharger')?.classList.add('sb-panel-hidden');
+  }
+});
 
 // ═══════════════════════════════════════════════
 // MISC UI
