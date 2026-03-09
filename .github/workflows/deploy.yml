@@ -26,54 +26,59 @@ jobs:
         uses: actions/checkout@v4
 
       # ── Inject secrets directly into index.html ─────────────────────────
-      # The placeholder comment @@INJECT_CONFIG@@ is replaced with a real
-      # inline <script> block. Synchronous — no async loading, no timing bugs,
-      # no separate file. The built index.html is never committed to the repo.
+      # Pure Python — no sed, no heredocs, no quoting issues.
+      # Secrets are passed as env vars; Python reads them and does the replacement.
       - name: Inject config into index.html
         env:
           OCM_KEY: ${{ secrets.OCM_API_KEY }}
           FB_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
         run: |
-          # Write the replacement script block to a temp file.
-          # Using a file avoids any escaping issues with sed and special characters.
-          cat > /tmp/config_block.txt << 'BLOCKEOF'
-          <script>
-          /* Injected by GitHub Actions — keys never stored in repo */
-          (function(){
-            var k="__OCM__";
-            var f=__FB__;
-            if(k) localStorage.setItem('ev_ocm_key',k);
-            if(f) localStorage.setItem('ev_fb_config', typeof f==='string'?f:JSON.stringify(f));
-            window._configFromDeploy=true;
-            console.log('[EVCharge] Config injected by deploy');
-          })();
-          </script>
-          BLOCKEOF
+          python3 << 'PYEOF'
+          import os, sys
 
-          # Substitute the actual secret values into the temp file
-          sed -i "s|__OCM__|${OCM_KEY}|g" /tmp/config_block.txt
-          sed -i "s|__FB__|${FB_CONFIG}|g" /tmp/config_block.txt
+          ocm = os.environ.get('OCM_KEY', '').strip()
+          fb  = os.environ.get('FB_CONFIG', '').strip()
 
-          # Replace the placeholder in index.html with the script block
-          # Python handles multiline replacement more reliably than sed
-          python3 - << 'PYEOF'
-          with open('index.html', 'r') as f:
-              html = f.read()
-          with open('/tmp/config_block.txt', 'r') as f:
-              block = f.read().strip()
-          if '<!-- @@INJECT_CONFIG@@ -->' not in html:
-              print('ERROR: placeholder not found in index.html')
-              exit(1)
-          html = html.replace('<!-- @@INJECT_CONFIG@@ -->', block)
-          with open('index.html', 'w') as f:
-              f.write(html)
-          print('Config injected into index.html successfully')
+          print(f"OCM key length:      {len(ocm)}")
+          print(f"Firebase cfg length: {len(fb)}")
+
+          if not ocm:
+              print("WARNING: OCM_API_KEY secret is empty or not set")
+          if not fb:
+              print("WARNING: FIREBASE_CONFIG secret is empty or not set")
+
+          script = f"""<script>
+          /* Injected by GitHub Actions deploy — keys never stored in repo */
+          (function(){{
+            var k="{ocm}";
+            var f={fb};
+            if(k) localStorage.setItem('ev_ocm_key', k);
+            if(f) localStorage.setItem('ev_fb_config', typeof f==='string' ? f : JSON.stringify(f));
+            window._configFromDeploy = true;
+            console.log('[EVCharge] Keys injected by deploy. OCM key length:', k.length);
+          }})();
+          </script>"""
+
+          with open('index.html', 'r') as file:
+              html = file.read()
+
+          placeholder = '<!-- @@INJECT_CONFIG@@ -->'
+          if placeholder not in html:
+              print("ERROR: placeholder not found in index.html — cannot inject config")
+              sys.exit(1)
+
+          html = html.replace(placeholder, script)
+
+          with open('index.html', 'w') as file:
+              file.write(html)
+
+          # Verify the key actually landed in the file
+          if ocm and ocm not in html:
+              print("ERROR: OCM key not found in output — injection failed")
+              sys.exit(1)
+
+          print("Injection successful")
           PYEOF
-
-          # Verify — should print the script tag, not the placeholder
-          grep -c 'ev_ocm_key' index.html && echo "Verification passed"
-          echo "OCM key length:      ${#OCM_KEY}"
-          echo "Firebase cfg length: ${#FB_CONFIG}"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
