@@ -6,6 +6,6 @@ I always wonder how much it would cost between charging near me overnight for ex
 
 I felt like this is a major gap within the already difficult-to-navigate electric vehicle charging landscape. This is just one way I want to make it easier for people like me to find out how much they are actually saving instead of buying a Prius. 
 
-Along with my Perfect Car Picker app, I think these are great additions for new EV buyers as well looking for a cheap-to-own vehicle who also want ot try to support the environment.
+Along with my Perfect Car Picker app, I think these are great additions for new EV buyers as well looking for a cheap-to-own vehicle who also want to support the environment.
 
 Hope this helps people, feedback is appreciated.
