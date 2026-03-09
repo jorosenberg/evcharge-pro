@@ -2438,9 +2438,31 @@ function estimatePricing(charger) {
 
 function chargeRateKw(vehicleMaxKw, chargerKw, soc) {
   const peak = Math.min(vehicleMaxKw, chargerKw);
+  const isDCFC = chargerKw > 22; // Common threshold: Level 2 is usually <= 22kW
+
+  // --- Level 2 Logic ---
+  if (!isDCFC) {
+    if (soc <= 0.95) {
+      // Per your request: Maintain peak, but floor at 7.2kW between 0.80 and 0.95
+      return (soc > 0.80) ? Math.max(peak, 7.2) : peak;
+    }
+    // Final balancing phase after 95%
+    return Math.max(peak * (1 - (soc - 0.95) / 0.05), 1.4);
+  }
+
+  // --- DC Fast Charging Logic (Post-80%) ---
   if (soc <= 0.80) return peak;
-  const taper = 1.0 - 0.9 * ((soc - 0.80) / 0.20);
-  return peak * Math.max(taper, 0.10);
+
+  /**
+   * Realistic DC Taper: Most EVs drop to ~30-40% of peak at 80%,
+   * then slide down to ~10-15% by 90%.
+   * Formula: Rate = Peak * (BaseTaper ^ Power) + BalancingFloor
+   */
+  const dcfcTaper = Math.pow(1 - (soc - 0.80) / 0.20, 1.5);
+  const realisticRate = (peak * 0.4 * dcfcTaper) + 7.2;
+
+  // Ensure it never exceeds the peak and has a floor for cell balancing
+  return Math.min(peak, Math.max(realisticRate, 3.0));
 }
 
 function getTouRate(pricing, elapsedMin, startHour) {
