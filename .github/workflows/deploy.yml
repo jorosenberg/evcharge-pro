@@ -1,4 +1,4 @@
-name: Deploy EVCharge Pro to GitHub Pages
+name: Deploy EVCharge Pro
 
 on:
   push:
@@ -6,37 +6,83 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
-      - name: Checkout source
+    steps:
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Generate config.js ─────────────────────────────────────────────
-      # Using env vars avoids any heredoc quoting issues entirely.
-      # GitHub Actions expands ${{ secrets.* }} into the env block safely,
-      # then the shell just reads $OCM_KEY / $FB_CONFIG as normal variables.
-      - name: Generate config.js from secrets
+      # ── Inject secrets directly into index.html ─────────────────────────
+      # The placeholder comment @@INJECT_CONFIG@@ is replaced with a real
+      # inline <script> block. Synchronous — no async loading, no timing bugs,
+      # no separate file. The built index.html is never committed to the repo.
+      - name: Inject config into index.html
         env:
           OCM_KEY: ${{ secrets.OCM_API_KEY }}
           FB_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
         run: |
-          printf 'window.EVCHARGE_CONFIG = { ocmKey: "%s", firebase: %s };\n' \
-            "$OCM_KEY" "$FB_CONFIG" > config.js
-          echo "=== config.js preview (first 60 chars of each value redacted) ==="
-          echo "OCM key length: ${#OCM_KEY}"
-          echo "Firebase config length: ${#FB_CONFIG}"
+          # Write the replacement script block to a temp file.
+          # Using a file avoids any escaping issues with sed and special characters.
+          cat > /tmp/config_block.txt << 'BLOCKEOF'
+          <script>
+          /* Injected by GitHub Actions — keys never stored in repo */
+          (function(){
+            var k="__OCM__";
+            var f=__FB__;
+            if(k) localStorage.setItem('ev_ocm_key',k);
+            if(f) localStorage.setItem('ev_fb_config', typeof f==='string'?f:JSON.stringify(f));
+            window._configFromDeploy=true;
+            console.log('[EVCharge] Config injected by deploy');
+          })();
+          </script>
+          BLOCKEOF
 
-      # ── Deploy to gh-pages ─────────────────────────────────────────────
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+          # Substitute the actual secret values into the temp file
+          sed -i "s|__OCM__|${OCM_KEY}|g" /tmp/config_block.txt
+          sed -i "s|__FB__|${FB_CONFIG}|g" /tmp/config_block.txt
+
+          # Replace the placeholder in index.html with the script block
+          # Python handles multiline replacement more reliably than sed
+          python3 - << 'PYEOF'
+          with open('index.html', 'r') as f:
+              html = f.read()
+          with open('/tmp/config_block.txt', 'r') as f:
+              block = f.read().strip()
+          if '<!-- @@INJECT_CONFIG@@ -->' not in html:
+              print('ERROR: placeholder not found in index.html')
+              exit(1)
+          html = html.replace('<!-- @@INJECT_CONFIG@@ -->', block)
+          with open('index.html', 'w') as f:
+              f.write(html)
+          print('Config injected into index.html successfully')
+          PYEOF
+
+          # Verify — should print the script tag, not the placeholder
+          grep -c 'ev_ocm_key' index.html && echo "Verification passed"
+          echo "OCM key length:      ${#OCM_KEY}"
+          echo "Firebase cfg length: ${#FB_CONFIG}"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
-          publish_branch: gh-pages
-          force_orphan: true
-          exclude_assets: '.github,*.md'
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
