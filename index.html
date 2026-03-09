@@ -425,7 +425,8 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
   /* Sidebar slides up from bottom */
   .sidebar {
     height: 58vh;
-    overflow-y: auto;
+    height: 58dvh; /* dvh excludes mobile browser chrome — better than vh */
+    overflow-y: scroll;
     overflow-x: hidden;
     border-top: 2px solid var(--a);
     border-radius: 16px 16px 0 0;
@@ -433,7 +434,15 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
     position: relative;
     z-index: 200;
     -webkit-overflow-scrolling: touch;
+    /* Padding so last row clears the browser nav bar on iOS/Android */
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 48px);
   }
+
+  /* Result panel: extra bottom room so nothing hides behind nav chrome */
+  .result-panel { padding-bottom: 16px !important; }
+
+  /* Last section in sidebar: don't clip */
+  .sb-sec:last-child { border-bottom: none; padding-bottom: 16px; }
 
   /* Drag handle indicator */
   .sidebar::before {
