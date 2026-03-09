@@ -1,0 +1,2759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>EVCharge Pro – EV Charging Cost Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wdth,wght@0,75..100,400..700;1,75..100,400..500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
+<style>
+:root{
+  --bg:#0c0d14;--surf:#131420;--card:#1c1d2c;--card2:#232438;
+  --b:#2a2b3d;--bb:#383951;
+  --a:#00e87a;--ad:rgba(0,232,122,.12);--ag:rgba(0,232,122,.06);
+  --t:#dde0f2;--m:#555770;--m2:#8587a6;
+  --w:#ffaa00;--d:#ff4b6e;--info:#4b9fff;
+  --f:'Instrument Sans',sans-serif;--mo:'JetBrains Mono',monospace;
+  --sw:385px;--th:42px;--fh:36px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--f);background:var(--bg);color:var(--t);font-size:12px;line-height:1.4}
+input,select,button,textarea{font-family:var(--f);font-size:12px}
+
+/* ── Layout ── */
+.app{display:grid;grid-template-rows:var(--th) var(--fh) 1fr;height:100vh}
+.main{display:grid;grid-template-columns:var(--sw) 1fr;overflow:hidden}
+#map{width:100%;height:100%;z-index:1}
+
+/* ── Topbar ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 12px;background:var(--surf);border-bottom:1px solid var(--b);
+  z-index:100;position:relative;
+}
+.logo{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;letter-spacing:.3px}
+.logo-bolt{
+  width:22px;height:22px;background:var(--a);border-radius:5px;
+  display:grid;place-items:center;font-size:12px;flex-shrink:0
+}
+.logo span{color:var(--a)}
+.topbar-right{display:flex;align-items:center;gap:6px}
+.status-chip{
+  display:flex;align-items:center;gap:4px;padding:3px 8px;
+  background:var(--card);border:1px solid var(--b);border-radius:4px;
+  font-family:var(--mo);font-size:10px;color:var(--m2);cursor:pointer;
+  transition:border-color .2s
+}
+.status-chip:hover{border-color:var(--bb)}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--m);flex-shrink:0}
+.status-dot.on{background:var(--a);animation:pulse 2s infinite}
+.status-dot.warn{background:var(--w)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.icon-btn{
+  width:26px;height:26px;border:1px solid var(--b);border-radius:5px;
+  background:var(--card);color:var(--m2);cursor:pointer;
+  display:grid;place-items:center;font-size:13px;transition:all .2s
+}
+.icon-btn:hover{border-color:var(--bb);color:var(--t)}
+
+/* ── Filter Bar ── */
+.filterbar{
+  display:flex;align-items:center;gap:6px;padding:0 10px;
+  background:var(--surf);border-bottom:1px solid var(--b);
+  overflow-x:auto;z-index:50;
+}
+.filterbar select,.filterbar input[type=text]{
+  height:22px;padding:0 6px;background:var(--card);border:1px solid var(--b);
+  border-radius:4px;color:var(--t);font-size:11px;white-space:nowrap
+}
+.filterbar select{padding-right:18px;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238587a6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:calc(100% - 5px) center
+}
+.filter-label{font-size:10px;color:var(--m);white-space:nowrap;font-family:var(--mo)}
+.filter-sep{width:1px;height:16px;background:var(--b);flex-shrink:0}
+.kw-wrap{display:flex;align-items:center;gap:4px}
+.kw-wrap input[type=range]{
+  width:70px;height:3px;accent-color:var(--a);cursor:pointer
+}
+.kw-val{font-family:var(--mo);font-size:10px;color:var(--a);min-width:35px}
+.fav-toggle{
+  display:flex;align-items:center;gap:3px;padding:0 6px;height:22px;
+  background:var(--card);border:1px solid var(--b);border-radius:4px;
+  cursor:pointer;font-size:11px;color:var(--m2);transition:all .2s;white-space:nowrap
+}
+.fav-toggle.active{border-color:var(--w);color:var(--w);background:rgba(255,170,0,.08)}
+.btn-sm{
+  height:22px;padding:0 8px;border:1px solid var(--b);border-radius:4px;
+  background:var(--card);color:var(--m2);cursor:pointer;font-size:11px;
+  white-space:nowrap;transition:all .2s
+}
+.btn-sm:hover{border-color:var(--a);color:var(--a)}
+.btn-sm.accent{background:var(--ad);border-color:rgba(0,232,122,.4);color:var(--a)}
+#locateBtn{font-size:13px}
+
+/* ── Sidebar ── */
+.sidebar{
+  background:var(--surf);border-right:1px solid var(--b);
+  overflow-y:auto;overflow-x:hidden;
+  display:flex;flex-direction:column;
+  height:100%;
+}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-track{background:transparent}
+.sidebar::-webkit-scrollbar-thumb{background:var(--b);border-radius:2px}
+
+.sb-sec{padding:8px 10px;border-bottom:1px solid var(--b)}
+.sb-label{
+  font-size:10px;font-family:var(--mo);letter-spacing:1px;
+  text-transform:uppercase;color:var(--m);margin-bottom:5px;
+  display:flex;align-items:center;justify-content:space-between
+}
+.sb-label .lright{font-family:var(--mo);font-size:9px;color:var(--m)}
+
+/* Compact select/input */
+.inp{
+  width:100%;height:26px;padding:0 8px;
+  background:var(--card);border:1px solid var(--b);border-radius:5px;
+  color:var(--t);outline:none;transition:border-color .15s;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238587a6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:calc(100% - 6px) center;
+  padding-right:20px
+}
+.inp:focus{border-color:var(--a)}
+.inp-plain{
+  width:100%;height:26px;padding:0 8px;
+  background:var(--card);border:1px solid var(--b);border-radius:5px;
+  color:var(--t);outline:none;transition:border-color .15s
+}
+.inp-plain:focus{border-color:var(--a)}
+.inp-sm{
+  height:22px;padding:0 6px;background:var(--card);border:1px solid var(--b);
+  border-radius:4px;color:var(--t);outline:none;width:100%
+}
+.inp-sm:focus{border-color:var(--a)}
+.inp-row{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.inp-row.three{grid-template-columns:1fr 1fr 1fr}
+.inp-group{display:flex;flex-direction:column;gap:3px}
+.inp-sub{font-size:10px;color:var(--m2)}
+
+/* Vehicle stats */
+.vstats{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+.vstat{
+  padding:2px 6px;background:var(--card);border:1px solid var(--b);
+  border-radius:3px;font-family:var(--mo);font-size:10px;color:var(--m2)
+}
+.vstat.hi{border-color:rgba(0,232,122,.3);color:var(--a)}
+
+/* Charger card in sidebar */
+.charger-sel{
+  background:var(--card);border:1px solid var(--b);border-radius:6px;
+  padding:7px 9px;min-height:44px;position:relative;cursor:default
+}
+.charger-sel.empty{
+  display:grid;place-items:center;color:var(--m);font-size:11px;
+  border-style:dashed;text-align:center;line-height:1.5
+}
+.ch-name{font-weight:600;font-size:12px;margin-bottom:2px;padding-right:24px;line-height:1.3}
+.ch-meta{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.ch-tag{
+  padding:1px 5px;border-radius:3px;font-family:var(--mo);font-size:9px;
+  background:var(--surf);border:1px solid var(--b);color:var(--m2)
+}
+.ch-tag.hi{border-color:rgba(0,232,122,.3);color:var(--a);background:var(--ag)}
+.ch-tag.warn{border-color:rgba(255,170,0,.3);color:var(--w);background:rgba(255,170,0,.05)}
+.fav-star{
+  position:absolute;top:6px;right:6px;background:none;border:none;
+  font-size:14px;cursor:pointer;color:var(--m);transition:color .15s;line-height:1
+}
+.fav-star.on{color:var(--w)}
+.data-badge{
+  display:inline-flex;align-items:center;gap:3px;margin-top:4px;
+  padding:2px 6px;border-radius:3px;font-size:10px;font-family:var(--mo)
+}
+.data-badge.community{background:var(--ad);color:var(--a);border:1px solid rgba(0,232,122,.2)}
+.data-badge.estimated{background:rgba(255,170,0,.08);color:var(--w);border:1px solid rgba(255,170,0,.2)}
+.data-badge.default{background:var(--card);color:var(--m2);border:1px solid var(--b)}
+
+/* Mode toggle */
+.mode-row{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.mode-btn{
+  height:26px;border:1px solid var(--b);border-radius:5px;
+  background:var(--card);color:var(--m2);cursor:pointer;
+  font-size:11px;font-weight:500;transition:all .15s;display:flex;
+  align-items:center;justify-content:center;gap:4px
+}
+.mode-btn.active{background:var(--ad);border-color:rgba(0,232,122,.4);color:var(--a)}
+
+/* Sliders */
+.soc-slider{position:relative;margin-top:5px}
+.soc-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:5px}
+.soc-num{
+  height:26px;width:100%;padding:0 6px;text-align:center;
+  background:var(--card);border:1px solid var(--b);border-radius:5px;
+  color:var(--a);font-family:var(--mo);font-size:12px;font-weight:500;outline:none
+}
+.soc-num:focus{border-color:var(--a)}
+.soc-arrow{color:var(--m);font-size:11px;text-align:center}
+
+/* Accordion */
+.acc-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:7px 10px;background:var(--surf);border-bottom:1px solid var(--b);
+  cursor:pointer;user-select:none;transition:background .15s
+}
+.acc-header:hover{background:var(--card)}
+.acc-title{font-size:11px;font-weight:600;display:flex;align-items:center;gap:5px}
+.acc-right{display:flex;align-items:center;gap:6px}
+.acc-summary{font-family:var(--mo);font-size:10px;color:var(--a)}
+.acc-chevron{font-size:10px;color:var(--m);transition:transform .2s}
+.acc-chevron.open{transform:rotate(90deg)}
+.acc-body{padding:8px 10px;border-bottom:1px solid var(--b);background:var(--bg)}
+
+/* TOU table */
+.tou-grid{display:grid;grid-template-columns:90px 62px 62px 60px 56px 22px;gap:4px;align-items:center;margin-bottom:4px}
+.tou-head{font-size:9px;color:var(--m);font-family:var(--mo);padding-bottom:2px;text-align:center}
+.tou-head:first-child{text-align:left}
+.del-btn{background:none;border:none;color:var(--m);cursor:pointer;font-size:13px;line-height:1;padding:0;display:grid;place-items:center;height:22px;transition:color .15s}
+.del-btn:hover{color:var(--d)}
+.add-row-btn{
+  width:100%;height:22px;border:1px dashed var(--b);border-radius:4px;
+  background:none;color:var(--m);cursor:pointer;font-size:11px;
+  transition:all .15s;margin-top:4px
+}
+.add-row-btn:hover{border-color:var(--a);color:var(--a)}
+.flat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:6px}
+
+/* Parking fields */
+.park-toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.park-type-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:6px}
+.park-type-btn{
+  height:22px;border:1px solid var(--b);border-radius:4px;
+  background:var(--card);color:var(--m2);cursor:pointer;font-size:11px;
+  transition:all .15s
+}
+.park-type-btn.active{background:var(--ad);border-color:rgba(0,232,122,.3);color:var(--a)}
+
+/* Toggle switch */
+.tog{position:relative;display:inline-block;width:32px;height:18px;cursor:pointer;flex-shrink:0}
+.tog input{display:none}
+.tog-track{position:absolute;inset:0;background:var(--b);border-radius:9px;transition:background .2s}
+.tog input:checked+.tog-track{background:var(--a)}
+.tog-thumb{position:absolute;top:3px;left:3px;width:12px;height:12px;background:white;border-radius:50%;transition:transform .2s}
+.tog input:checked~.tog-thumb{transform:translateX(14px)}
+
+/* Calculate button */
+.calc-btn{
+  width:100%;height:32px;background:var(--a);border:none;border-radius:6px;
+  color:#000;font-weight:700;font-size:12px;letter-spacing:.5px;
+  cursor:pointer;transition:all .2s;position:relative;overflow:hidden
+}
+.calc-btn:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,232,122,.25)}
+.calc-btn:active{transform:none}
+.calc-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.calc-btn .spinner{
+  width:14px;height:14px;border:2px solid rgba(0,0,0,.3);border-top-color:#000;
+  border-radius:50%;animation:spin .7s linear infinite;display:inline-block
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Save to Firebase btn */
+.save-btn{
+  width:100%;height:26px;background:none;
+  border:1px solid rgba(0,232,122,.35);border-radius:5px;
+  color:var(--a);font-size:11px;cursor:pointer;margin-top:5px;
+  transition:all .2s
+}
+.save-btn:hover{background:var(--ad)}
+
+/* Result panel */
+.result-panel{padding:8px 10px;border-bottom:1px solid var(--b);background:var(--bg)}
+.result-total{
+  display:flex;align-items:baseline;gap:6px;margin-bottom:6px
+}
+.result-big{font-size:28px;font-weight:700;color:var(--a);line-height:1;font-family:var(--mo)}
+.result-label{font-size:11px;color:var(--m2)}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.result-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:3px 6px;background:var(--card);border-radius:4px
+}
+.result-row-label{color:var(--m2);font-size:10px}
+.result-row-val{font-family:var(--mo);font-size:11px;color:var(--t)}
+.result-row-val.green{color:var(--a)}
+.result-row-val.warn{color:var(--w)}
+.result-row-val.red{color:var(--d)}
+.result-secondary{display:flex;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+.res-pill{
+  display:flex;flex-direction:column;align-items:center;
+  padding:4px 8px;background:var(--card);border-radius:5px;flex:1;min-width:60px
+}
+.res-pill-val{font-family:var(--mo);font-size:13px;font-weight:500;color:var(--t)}
+.res-pill-label{font-size:9px;color:var(--m);font-family:var(--mo);text-transform:uppercase;letter-spacing:.5px}
+.tou-mini{margin-top:5px}
+.tou-mini-row{
+  display:grid;grid-template-columns:auto 1fr auto auto;gap:4px;
+  align-items:center;padding:2px 0;border-bottom:1px solid var(--b)
+}
+.tou-mini-row:last-child{border-bottom:none}
+.tou-badge{
+  padding:1px 5px;border-radius:3px;font-size:9px;font-family:var(--mo)
+}
+.badge-peak{background:rgba(255,75,110,.12);color:#ff7090;border:1px solid rgba(255,75,110,.2)}
+.badge-offpeak{background:var(--ag);color:var(--a);border:1px solid rgba(0,232,122,.15)}
+.badge-super{background:rgba(75,159,255,.1);color:#7ab8ff;border:1px solid rgba(75,159,255,.15)}
+.badge-default{background:var(--card);color:var(--m2);border:1px solid var(--b)}
+.warn-pill{
+  display:flex;align-items:center;gap:4px;padding:4px 7px;
+  background:rgba(255,170,0,.08);border:1px solid rgba(255,170,0,.2);
+  border-radius:4px;font-size:10px;color:var(--w);margin-top:4px
+}
+
+/* Map overlay elements */
+.map-loading{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:var(--surf);border:1px solid var(--b);border-radius:8px;
+  padding:12px 20px;font-size:12px;color:var(--m2);z-index:1000;
+  display:flex;align-items:center;gap:8px;pointer-events:none
+}
+.map-attribution-fix .leaflet-control-attribution{font-size:9px}
+
+/* Modals */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);
+  z-index:2000;display:grid;place-items:center;backdrop-filter:blur(4px)
+}
+.modal-box{
+  background:var(--surf);border:1px solid var(--b);border-radius:10px;
+  padding:20px;width:460px;max-width:calc(100vw - 20px);max-height:85vh;overflow-y:auto
+}
+.modal-title{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.modal-section{margin-bottom:14px}
+.modal-section-title{font-size:11px;font-weight:600;color:var(--m2);margin-bottom:6px;font-family:var(--mo)}
+.modal-input{
+  width:100%;height:28px;padding:0 8px;background:var(--card);border:1px solid var(--b);
+  border-radius:5px;color:var(--t);outline:none;font-size:12px
+}
+.modal-input:focus{border-color:var(--a)}
+.modal-textarea{
+  width:100%;padding:8px;background:var(--card);border:1px solid var(--b);
+  border-radius:5px;color:var(--t);outline:none;font-size:11px;
+  font-family:var(--mo);resize:vertical;min-height:80px;line-height:1.5
+}
+.modal-textarea:focus{border-color:var(--a)}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.modal-btn{
+  height:30px;padding:0 14px;border-radius:5px;border:1px solid var(--b);
+  background:var(--card);color:var(--t);cursor:pointer;font-size:12px;transition:all .15s
+}
+.modal-btn.primary{background:var(--a);border-color:var(--a);color:#000;font-weight:600}
+.modal-btn:hover{border-color:var(--bb)}
+.modal-btn.primary:hover{filter:brightness(1.1)}
+.hint-box{
+  background:var(--card);border:1px solid var(--b);border-radius:5px;
+  padding:8px;font-size:11px;color:var(--m2);line-height:1.6;margin-top:6px
+}
+.hint-box code{font-family:var(--mo);color:var(--a);font-size:10px}
+.hint-box a{color:var(--info);text-decoration:none}
+.hint-box a:hover{text-decoration:underline}
+
+/* Leaflet popup override */
+.leaflet-popup-content-wrapper{
+  background:var(--surf)!important;border:1px solid var(--b)!important;
+  border-radius:8px!important;box-shadow:0 8px 32px rgba(0,0,0,.5)!important;
+  color:var(--t)!important;font-family:var(--f)!important;font-size:12px!important;
+  padding:0!important
+}
+.leaflet-popup-content{margin:0!important;padding:0!important}
+.leaflet-popup-tip-container{display:none}
+.leaflet-popup-close-button{color:var(--m2)!important;right:8px!important;top:8px!important}
+.popup-inner{padding:10px 12px;min-width:180px;max-width:240px}
+.popup-name{font-weight:700;font-size:12px;margin-bottom:4px;line-height:1.3}
+.popup-network{font-size:10px;color:var(--m2);font-family:var(--mo);margin-bottom:6px}
+.popup-specs{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px}
+.popup-spec{padding:1px 5px;background:var(--card);border:1px solid var(--b);border-radius:3px;font-family:var(--mo);font-size:10px;color:var(--m2)}
+.popup-spec.hi{border-color:rgba(0,232,122,.3);color:var(--a)}
+.popup-cost{font-family:var(--mo);font-size:11px;color:var(--a);margin-bottom:6px}
+.popup-btn{
+  width:100%;height:26px;background:var(--a);border:none;border-radius:5px;
+  color:#000;font-weight:700;font-size:11px;cursor:pointer;transition:filter .15s
+}
+.popup-btn:hover{filter:brightness(1.1)}
+
+/* Charger list map info */
+.nochargers{
+  position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
+  background:var(--surf);border:1px solid var(--b);border-radius:7px;
+  padding:8px 14px;font-size:11px;color:var(--m2);z-index:500;pointer-events:none
+}
+
+/* Misc */
+.divider{height:1px;background:var(--b)}
+.text-muted{color:var(--m2)}
+.text-green{color:var(--a)}
+.text-warn{color:var(--w)}
+.flex-center{display:flex;align-items:center;gap:6px}
+.ml-auto{margin-left:auto}
+.full-w{width:100%}
+.mt4{margin-top:4px}
+.note{font-size:10px;color:var(--m);line-height:1.5}
+.link-btn{background:none;border:none;color:var(--info);cursor:pointer;font-size:11px;text-decoration:underline}
+
+/* ── Mobile Responsive ── */
+@media (max-width: 768px) {
+  :root { --sw:100vw; --th:48px; --fh:0px; }
+
+  .app { grid-template-rows: var(--th) 1fr; }
+  .filterbar { display: none !important; }
+
+  .main {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr auto;
+    position: relative;
+  }
+
+  /* Map takes top half */
+  #map {
+    height: 42vh;
+    min-height: 200px;
+    order: -1;
+  }
+
+  /* Sidebar slides up from bottom */
+  .sidebar {
+    height: 58vh;
+    height: 58dvh; /* dvh excludes mobile browser chrome — better than vh */
+    overflow-y: scroll;
+    overflow-x: hidden;
+    border-top: 2px solid var(--a);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 32px rgba(0,0,0,.5);
+    position: relative;
+    z-index: 200;
+    -webkit-overflow-scrolling: touch;
+    /* Padding so last row clears the browser nav bar on iOS/Android */
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 48px);
+  }
+
+  /* Result panel: extra bottom room so nothing hides behind nav chrome */
+  .result-panel { padding-bottom: 16px !important; }
+
+  /* Last section in sidebar: don't clip */
+  .sb-sec:last-child { border-bottom: none; padding-bottom: 16px; }
+
+  /* Drag handle indicator */
+  .sidebar::before {
+    content: '';
+    display: block;
+    width: 36px; height: 4px;
+    background: var(--bb);
+    border-radius: 2px;
+    margin: 8px auto 4px;
+    flex-shrink: 0;
+  }
+
+  /* Wider touch targets */
+  .mode-btn, .park-type-btn { height: 34px !important; font-size: 12px !important; }
+  .inp-plain, .inp-sm, select.inp { height: 32px !important; font-size: 13px !important; }
+  .calc-btn { height: 44px; font-size: 14px; }
+  .acc-header { padding: 10px 12px; min-height: 44px; }
+  .acc-title { font-size: 12px; }
+
+  /* Bigger map pins */
+  .topbar { padding: 0 10px; }
+  .logo { font-size: 14px; }
+
+  /* TOU grid adapts */
+  .tou-grid { grid-template-columns: 70px 56px 56px 48px 44px 22px !important; gap: 3px !important; }
+
+  /* Result panel bigger text */
+  .result-big { font-size: 32px !important; }
+  .res-pill-val { font-size: 13px !important; }
+}
+
+@media (max-width: 380px) {
+  .tou-grid { grid-template-columns: 60px 50px 50px 44px 40px 20px !important; }
+  .result-secondary { grid-template-columns: 1fr 1fr !important; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="logo"><div class="logo-bolt">⚡</div> EV<span>Charge</span> Pro</div>
+    <div class="topbar-right">
+      <button class="icon-btn" id="mobileToggleBtn" onclick="toggleMobileView()" title="Toggle map/details" style="display:none">🗺</button>
+      <div class="status-chip" onclick="openSettings()" title="OpenChargeMap API">
+        <div class="status-dot" id="ocmDot"></div>
+        <span id="ocmLabel">OCM</span>
+      </div>
+      <div class="status-chip" onclick="openSettings()" title="Firebase">
+        <div class="status-dot" id="fbDot"></div>
+        <span id="fbLabel">Firebase</span>
+      </div>
+      <button class="icon-btn" onclick="openSettings()" title="Settings">⚙</button>
+      <button class="icon-btn" onclick="locateMe()" id="locateBtn" title="My Location">◎</button>
+    </div>
+  </header>
+
+  <!-- Filter Bar -->
+  <div class="filterbar">
+    <span class="filter-label">FILTER:</span>
+    <select id="fNetwork" onchange="applyFilters()">
+      <option value="">All Networks</option>
+    </select>
+    <select id="fLevel" onchange="applyFilters()">
+      <option value="">All Levels</option>
+      <option value="1">Level 1</option>
+      <option value="2">Level 2</option>
+      <option value="3">DC Fast</option>
+    </select>
+    <select id="fConnector" onchange="applyFilters()">
+      <option value="">All Connectors</option>
+      <option value="J1772">J1772</option>
+      <option value="CCS">CCS</option>
+      <option value="CHAdeMO">CHAdeMO</option>
+      <option value="NACS">NACS / Tesla</option>
+      <option value="Type 2">Type 2</option>
+    </select>
+    <div class="filter-sep"></div>
+    <div class="kw-wrap">
+      <span class="filter-label">MIN kW:</span>
+      <input type="range" id="fMinKw" min="0" max="350" step="10" value="0" oninput="document.getElementById('fKwVal').textContent=this.value+'kW';applyFilters()"/>
+      <span class="kw-val" id="fKwVal">0kW</span>
+    </div>
+    <div class="filter-sep"></div>
+    <div class="fav-toggle" id="favToggle" onclick="toggleFavFilter()">★ Favorites</div>
+    <div class="filter-sep"></div>
+    <button class="btn-sm" onclick="clearFilters()">✕ Clear</button>
+    <input type="text" id="locationSearch" placeholder="Search location…" style="width:120px" onkeydown="if(event.key==='Enter')searchLocation()"/>
+    <button class="btn-sm accent" onclick="searchLocation()">Go</button>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+
+      <!-- Vehicle -->
+      <div class="sb-sec">
+        <div class="sb-label">Vehicle</div>
+        <select class="inp" id="vehicleSelect" onchange="onVehicleChange()"></select>
+        <div class="vstats" id="vstats"></div>
+      </div>
+
+      <!-- Selected Charger -->
+      <div class="sb-sec">
+        <div class="sb-label">
+          Charger
+          <span class="lright" id="chargerCount">← click map pin</span>
+        </div>
+        <div class="charger-sel empty" id="chargerCard">
+          <span>📍 Click a charger on the map</span>
+        </div>
+      </div>
+
+      <!-- Mode -->
+      <div class="sb-sec">
+        <div class="sb-label">Calculation Mode</div>
+        <div class="mode-row">
+          <button class="mode-btn active" id="modeTime" onclick="setMode('time')">⏱ Time</button>
+          <button class="mode-btn" id="modePct" onclick="setMode('percent')">🔋 % Range</button>
+        </div>
+      </div>
+
+      <!-- Inputs -->
+      <div class="sb-sec" id="inputSec">
+        <!-- populated by setMode() -->
+      </div>
+
+      <!-- Subscription -->
+      <div class="sb-sec">
+        <div class="sb-label">Subscription / Membership</div>
+        <select class="inp" id="subSelect" onchange="onSubChange()"></select>
+        <div id="subDetails" style="margin-top:4px"></div>
+      </div>
+
+      <!-- Pricing Accordion -->
+      <div class="acc-header" onclick="toggleAcc('pricing')">
+        <div class="acc-title">⚡ Pricing / TOU Schedule</div>
+        <div class="acc-right">
+          <span class="acc-summary" id="pricingSummary"></span>
+          <span class="acc-chevron" id="pricingChev">▶</span>
+        </div>
+      </div>
+      <div id="pricingBody" style="display:none">
+        <div class="acc-body">
+          <!-- TOU intervals -->
+          <div id="touTable"></div>
+          <!-- Flat rates -->
+          <div class="flat-grid">
+            <div class="inp-group">
+              <span class="inp-sub">Default $/kWh</span>
+              <input class="inp-sm" type="number" step="0.01" id="pDefaultKwh" oninput="syncPricing()"/>
+            </div>
+            <div class="inp-group">
+              <span class="inp-sub">Default $/hr</span>
+              <input class="inp-sm" type="number" step="0.01" id="pDefaultHr" oninput="syncPricing()"/>
+            </div>
+            <div class="inp-group">
+              <span class="inp-sub">Min Fee $</span>
+              <input class="inp-sm" type="number" step="0.01" id="pMinFee" oninput="syncPricing()"/>
+            </div>
+          </div>
+          <div class="flat-grid mt4">
+            <div class="inp-group" style="grid-column:span 2">
+              <span class="inp-sub">Min fee threshold (min)</span>
+              <input class="inp-sm" type="number" step="1" id="pMinThresh" oninput="syncPricing()"/>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:5px">
+            <button class="save-btn" id="copyStatsBtn" onclick="copyChargerStats()" style="margin-top:0" title="Copy all pricing & parking settings to clipboard">
+              📋 Copy Stats
+            </button>
+            <button class="save-btn" id="pasteStatsBtn" onclick="pasteChargerStats()" style="margin-top:0;opacity:.5;cursor:not-allowed" disabled title="No stats copied yet">
+              📌 Paste Stats
+            </button>
+          </div>
+          <button class="save-btn" id="savePricingBtn" onclick="savePricingToFirebase()" style="display:none">
+            💾 Save to community database
+          </button>
+        </div>
+      </div>
+
+      <!-- Parking Accordion -->
+      <div class="acc-header" onclick="toggleAcc('parking')">
+        <div class="acc-title">🅿 Parking / Garage Fees</div>
+        <div class="acc-right">
+          <span class="acc-summary" id="parkingSummary"></span>
+          <span class="acc-chevron" id="parkingChev">▶</span>
+        </div>
+      </div>
+      <div id="parkingBody" style="display:none">
+        <div class="acc-body">
+          <div class="park-toggle-row">
+            <span style="font-size:11px">Enable parking fees</span>
+            <label class="tog">
+              <input type="checkbox" id="parkEnabled" onchange="onParkToggle()"/>
+              <div class="tog-track"></div><div class="tog-thumb"></div>
+            </label>
+          </div>
+          <div id="parkFields" style="display:none">
+            <div class="park-type-row">
+              <button class="park-type-btn active" id="ptTimedBtn" onclick="setParkType('timed')">Tiered Hourly</button>
+              <button class="park-type-btn" id="ptFlatBtn" onclick="setParkType('flat')">Flat Fee</button>
+            </div>
+            <div id="parkTimedFields">
+              <div class="inp-row three">
+                <div class="inp-group">
+                  <span class="inp-sub">1st Hr $/hr</span>
+                  <input class="inp-sm" type="number" step="0.50" id="pFirstHr" value="3" oninput="syncParking()"/>
+                </div>
+                <div class="inp-group">
+                  <span class="inp-sub">After 1st $/hr</span>
+                  <input class="inp-sm" type="number" step="0.50" id="pSubseqHr" value="2" oninput="syncParking()"/>
+                </div>
+                <div class="inp-group">
+                  <span class="inp-sub">Free min</span>
+                  <input class="inp-sm" type="number" step="5" id="pFreeMin" value="0" oninput="syncParking()"/>
+                </div>
+              </div>
+            </div>
+            <div id="parkFlatFields" style="display:none">
+              <div class="inp-group">
+                <span class="inp-sub">Flat fee $</span>
+                <input class="inp-sm" type="number" step="0.50" id="pFlatFee" value="5" oninput="syncParking()"/>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Always-on result + live session -->
+      <div class="sb-sec" style="padding-bottom:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+          <div style="font-size:9px;font-family:var(--mo);color:var(--m);text-transform:uppercase;letter-spacing:1px">Estimated Cost</div>
+          <div style="display:flex;gap:4px">
+            <button class="mode-btn" id="liveStartBtn" onclick="startLiveSession()" style="height:20px;font-size:9px;padding:0 7px">▶ Live</button>
+            <button class="mode-btn" id="liveStopBtn" onclick="stopLiveSession()" style="height:20px;font-size:9px;padding:0 7px;display:none">■ Stop</button>
+          </div>
+        </div>
+        <div id="livePanel" style="display:none;background:var(--card);border:1px solid rgba(0,232,122,.35);border-radius:6px;padding:6px 8px;margin-bottom:5px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:9px;color:var(--m);font-family:var(--mo);letter-spacing:1px">LIVE COST</div>
+              <div id="liveCost" style="font-size:22px;font-weight:700;color:var(--a);font-family:var(--mo);line-height:1">$0.00</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:9px;color:var(--m);font-family:var(--mo)">ELAPSED</div>
+              <div id="liveTime" style="font-size:14px;color:var(--t);font-family:var(--mo)">0:00</div>
+              <div id="liveKwh" style="font-size:10px;color:var(--m2);font-family:var(--mo)">0.00 kWh</div>
+            </div>
+          </div>
+        </div>
+        <div id="resultPanel" class="result-panel" style="display:none"></div>
+        <div id="resultPlaceholder" style="text-align:center;padding:14px 0;color:var(--m);font-size:11px">
+          Select a vehicle &amp; charger to see live estimate
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Map -->
+    <div id="map" style="position:relative">
+      <div class="map-loading" id="mapLoader" style="display:none">
+        <div class="spinner" style="width:12px;height:12px;border-color:rgba(0,232,122,.3);border-top-color:var(--a);border-width:2px;animation:spin .8s linear infinite;border-style:solid;border-radius:50%"></div>
+        Loading chargers…
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal" style="display:none" onclick="if(event.target===this)closeSettings()">
+  <div class="modal-box">
+    <div class="modal-title">⚙ EVCharge Pro Settings</div>
+
+    <!-- OCM Key -->
+    <div class="modal-section">
+      <div class="modal-section-title">OPENCHARGEMAP API KEY</div>
+      <!-- Status row: shows whether key is set without revealing it -->
+      <div id="ocmKeyStatus" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 10px;background:var(--card);border:1px solid var(--b);border-radius:5px;font-size:11px"></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input class="modal-input" type="password" id="ocmKeyInput"
+          placeholder="Paste new key to override…"
+          style="flex:1;margin-bottom:0"
+          autocomplete="off" autocorrect="off" spellcheck="false"/>
+        <button class="modal-btn" onclick="clearOcmKey()" style="white-space:nowrap;flex-shrink:0">✕ Clear</button>
+      </div>
+      <div class="hint-box" style="margin-top:6px">
+        Free key at <a href="https://openchargemap.org/site/profile/register" target="_blank">openchargemap.org/register</a>.
+        If deployed via GitHub Actions your key is pre-loaded from repo secrets — you only need to enter one here to override it.
+      </div>
+    </div>
+
+    <!-- Firebase -->
+    <div class="modal-section">
+      <div class="modal-section-title">FIREBASE CONFIGURATION</div>
+      <div id="fbStatus" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 10px;background:var(--card);border:1px solid var(--b);border-radius:5px;font-size:11px"></div>
+      <details style="margin-bottom:8px">
+        <summary style="font-size:11px;color:var(--m2);cursor:pointer;user-select:none">Override Firebase config (paste new JSON to replace)</summary>
+        <textarea class="modal-textarea" id="fbConfigInput" style="margin-top:6px" placeholder='{
+  "apiKey": "...",
+  "authDomain": "...",
+  "projectId": "...",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "..."
+}'></textarea>
+        <button class="modal-btn" onclick="clearFbConfig()" style="margin-top:4px">✕ Clear saved config</button>
+      </details>
+      <div class="hint-box">
+        <b>Setup (free):</b> <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a>
+        → Create project → Add web app → Firestore in test mode → copy config JSON.<br/><br/>
+        If deployed via GitHub Actions, Firebase is pre-configured from repo secrets.
+      </div>
+      <button class="modal-btn" onclick="testFirebase()" style="margin-top:8px;width:100%">🔌 Test Firebase Connection</button>
+      <div id="fbTestResult" style="margin-top:6px;font-size:11px"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="modal-btn" onclick="closeSettings()">Cancel</button>
+      <button class="modal-btn primary" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- config.js is generated by GitHub Actions from repo secrets.
+     init() waits for it before starting so keys are available immediately. -->
+<script>
+window._configReady = new Promise(function(resolve) {
+  var s = document.createElement('script');
+  s.src = 'config.js?v=' + Date.now(); // bust cache so fresh deploy is always used
+  s.onload = function() {
+    if (window.EVCHARGE_CONFIG) {
+      var cfg = window.EVCHARGE_CONFIG;
+      // Write OCM key — overwrite even if already set so deploy always wins
+      if (cfg.ocmKey && cfg.ocmKey.trim()) {
+        localStorage.setItem('ev_ocm_key', cfg.ocmKey.trim());
+        console.log('[EVCharge] OCM key loaded from config.js');
+      }
+      if (cfg.firebase) {
+        var fbStr = typeof cfg.firebase === 'string'
+          ? cfg.firebase
+          : JSON.stringify(cfg.firebase);
+        localStorage.setItem('ev_fb_config', fbStr);
+        console.log('[EVCharge] Firebase config loaded from config.js, project:',
+          (cfg.firebase.projectId || JSON.parse(fbStr).projectId || 'unknown'));
+      }
+    }
+    resolve('config.js');
+  };
+  s.onerror = function() {
+    console.log('[EVCharge] No config.js — using existing localStorage / manual settings');
+    resolve('no-config');
+  };
+  document.head.appendChild(s);
+});
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════
+
+// ─── Car SVG Silhouettes (side profile) ─────────────────────
+const CAR_SVGS = {
+  suv: `<svg viewBox="0 0 64 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 18 Q6 14 10 13 L16 8 Q19 6 28 6 L44 6 Q50 6 54 10 L58 13 Q60 14 60 18 Z"/><circle cx="14" cy="19" r="4" fill="#0c0d14"/><circle cx="14" cy="19" r="2.2"/><circle cx="50" cy="19" r="4" fill="#0c0d14"/><circle cx="50" cy="19" r="2.2"/></svg>`,
+  sedan: `<svg viewBox="0 0 64 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 18 Q5 14 9 13 L18 9 Q22 7 30 7 L40 7 Q46 7 50 9 L57 13 Q59 14 59 18 Z"/><circle cx="14" cy="19" r="4" fill="#0c0d14"/><circle cx="14" cy="19" r="2.2"/><circle cx="50" cy="19" r="4" fill="#0c0d14"/><circle cx="50" cy="19" r="2.2"/></svg>`,
+  pickup: `<svg viewBox="0 0 72 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 18 L5 14 L12 14 L12 8 Q14 6 22 6 L34 6 Q38 6 40 8 L42 14 L67 14 L67 18 Z"/><circle cx="15" cy="19" r="4" fill="#0c0d14"/><circle cx="15" cy="19" r="2.2"/><circle cx="57" cy="19" r="4" fill="#0c0d14"/><circle cx="57" cy="19" r="2.2"/></svg>`,
+  hatch: `<svg viewBox="0 0 60 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 18 Q5 14 9 13 L14 8 Q17 6 24 6 L40 6 Q46 6 51 10 L55 13 Q57 14 57 18 Z"/><circle cx="13" cy="19" r="4" fill="#0c0d14"/><circle cx="13" cy="19" r="2.2"/><circle cx="47" cy="19" r="4" fill="#0c0d14"/><circle cx="47" cy="19" r="2.2"/></svg>`,
+  luxury: `<svg viewBox="0 0 68 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M5 18 Q5 13 10 12 L20 8 Q25 6 34 6 L46 6 Q53 6 57 9 L63 12 Q65 13 65 18 Z"/><circle cx="14" cy="19" r="4" fill="#0c0d14"/><circle cx="14" cy="19" r="2.2"/><circle cx="54" cy="19" r="4" fill="#0c0d14"/><circle cx="54" cy="19" r="2.2"/></svg>`,
+  cyber: `<svg viewBox="0 0 72 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M8 18 L8 14 L18 7 L44 7 L56 13 L66 14 L66 18 Z"/><circle cx="17" cy="19" r="4" fill="#0c0d14"/><circle cx="17" cy="19" r="2.2"/><circle cx="55" cy="19" r="4" fill="#0c0d14"/><circle cx="55" cy="19" r="2.2"/></svg>`,
+};
+// Map vehicle id to body type
+const VEHICLE_BODY = {
+  1:'suv', 2:'pickup', 3:'sedan', 4:'luxury', 5:'cyber',
+  6:'sedan', 7:'hatch', 8:'sedan', 9:'suv', 10:'suv',
+  11:'hatch', 12:'luxury', 13:'luxury', 14:'suv', 15:'sedan',
+  16:'suv', 17:'suv', 18:'hatch',
+};
+
+const VEHICLES = [
+  {id:1, make:'Tesla',         model:'Model Y',       year:2026,trim:'Long Range RWD',    battery:81,   maxDc:250,maxAc:11.5,connector:'NACS',   range:320,milesPerKwh:3.95},
+  {id:2, make:'Ford',          model:'F-150 Lightning',year:2026,trim:'Extended Range',   battery:131,  maxDc:155,maxAc:19.2,connector:'CCS',    range:320,milesPerKwh:2.44},
+  {id:3, make:'Tesla',         model:'Model 3',       year:2025,trim:'Long Range AWD',    battery:82,   maxDc:250,maxAc:11.5,connector:'NACS',   range:358,milesPerKwh:4.37},
+  {id:4, make:'Tesla',         model:'Model S',       year:2025,trim:'Plaid',             battery:100,  maxDc:250,maxAc:11.5,connector:'NACS',   range:396,milesPerKwh:3.96},
+  {id:5, make:'Tesla',         model:'Cybertruck',    year:2025,trim:'AWD',               battery:123,  maxDc:250,maxAc:11.5,connector:'NACS',   range:340,milesPerKwh:2.76},
+  {id:6, make:'Hyundai',       model:'IONIQ 6',       year:2025,trim:'SE LR RWD',         battery:77.4, maxDc:233,maxAc:11,  connector:'CCS',    range:361,milesPerKwh:4.66},
+  {id:7, make:'Hyundai',       model:'IONIQ 5',       year:2025,trim:'SE Standard',       battery:58,   maxDc:220,maxAc:11,  connector:'CCS',    range:266,milesPerKwh:4.59},
+  {id:8, make:'Kia',           model:'EV6',           year:2025,trim:'GT-Line AWD',       battery:77.4, maxDc:233,maxAc:11,  connector:'CCS',    range:310,milesPerKwh:4.01},
+  {id:9, make:'Rivian',        model:'R1T',           year:2025,trim:'Dual Motor Large',  battery:135,  maxDc:220,maxAc:11.5,connector:'CCS',    range:410,milesPerKwh:3.04},
+  {id:10,make:'Chevrolet',     model:'Equinox EV',    year:2025,trim:'2LT AWD',           battery:85,   maxDc:150,maxAc:11.5,connector:'CCS',    range:280,milesPerKwh:3.29},
+  {id:11,make:'BMW',           model:'i4',            year:2025,trim:'eDrive40',           battery:83.9, maxDc:205,maxAc:11,  connector:'CCS',    range:301,milesPerKwh:3.59},
+  {id:12,make:'Lucid',         model:'Air',           year:2025,trim:'Grand Touring',     battery:112,  maxDc:350,maxAc:19.2,connector:'CCS',    range:516,milesPerKwh:4.61},
+  {id:13,make:'Mercedes-Benz', model:'EQS',           year:2025,trim:'450+',             battery:107.8,maxDc:200,maxAc:22,  connector:'CCS',    range:350,milesPerKwh:3.25},
+  {id:14,make:'Volkswagen',    model:'ID.4',          year:2025,trim:'Pro S AWD',         battery:82,   maxDc:135,maxAc:11,  connector:'CCS',    range:255,milesPerKwh:3.11},
+  {id:15,make:'Polestar',      model:'2',             year:2025,trim:'LR Dual Motor',     battery:82,   maxDc:205,maxAc:11,  connector:'CCS',    range:300,milesPerKwh:3.66},
+  {id:16,make:'Cadillac',      model:'LYRIQ',         year:2025,trim:'Luxury 2 AWD',      battery:102,  maxDc:190,maxAc:19.2,connector:'CCS',    range:307,milesPerKwh:3.01},
+  {id:17,make:'Audi',          model:'Q8 e-tron',     year:2025,trim:'55 quattro',       battery:114,  maxDc:170,maxAc:22,  connector:'CCS',    range:285,milesPerKwh:2.50},
+  {id:18,make:'Nissan',        model:'LEAF',          year:2025,trim:'SV Plus',           battery:60,   maxDc:100,maxAc:6.6, connector:'CHAdeMO',range:212,milesPerKwh:3.53},
+];
+
+const SUBSCRIPTIONS = [
+  {id:0, name:'No membership',             network:'',                  discount:0,  fee:0,     sessionFee:0,    perks:[]},
+  {id:1, name:'Electrify America Pass+',   network:'Electrify America', discount:25, fee:7,     sessionFee:0,    perks:['25% off kWh/min rate','No session fees','$7/mo']},
+  {id:2, name:'Tesla Charging (non-owner)',network:'Tesla',              discount:0,  fee:0,     sessionFee:0,    perks:['Same rate as Tesla owners at most NACS sites','No membership required']},
+  {id:3, name:'EVgo Plus',                 network:'EVgo',               discount:15, fee:7.99,  sessionFee:0,    perks:['~15% off kWh rate','No $0.99 session fee','$7.99/mo']},
+  {id:4, name:'ChargePoint (free account)',network:'ChargePoint',        discount:0,  fee:0,     sessionFee:0,    perks:['Access to 68k+ locations','Site-host sets price']},
+  {id:5, name:'Blink Plus',                network:'Blink',              discount:10, fee:4.99,  sessionFee:0,    perks:['10% off DC Fast','$4.99/mo']},
+  {id:6, name:'Rivian Membership',         network:'Rivian',             discount:5,  fee:0,     sessionFee:0,    perks:['Included with Rivian vehicle','Access to RAN + Tesla SC']},
+  {id:7, name:'Electrify America Pass',    network:'Electrify America',  discount:0,  fee:0,     sessionFee:0,    perks:['Pay-as-you-go','No monthly fee','No discount']},
+];
+
+// Network pricing defaults — researched Jan 2026 averages
+// Sources: EA pricing page, Recharged.com, InsideEVs, US News, EVgo app
+const NETWORK_DEFAULTS = {
+  // ── Tier 1: Major DCFC Networks ──────────────────────────────────────────
+  'Electrify America': {
+    kwh:0.48, hr:0,
+    tou:[
+      {label:'Peak',   start:'09:00',end:'21:00',kwh:0.48,hr:0},
+      {label:'Off-Peak',start:'21:00',end:'09:00',kwh:0.34,hr:0}
+    ],
+    minFee:1.00, minThresh:5,
+    memberDiscount:25, memberFee:7,  // Pass+ $7/mo = 25% off
+    note:'Site-specific pricing; Pass+ $7/mo saves ~25%'
+  },
+  'Tesla': {
+    kwh:0.42, hr:0,
+    tou:[
+      {label:'Peak',   start:'08:00',end:'20:00',kwh:0.46,hr:0},
+      {label:'Off-Peak',start:'20:00',end:'08:00',kwh:0.32,hr:0}
+    ],
+    minFee:0, minThresh:0,
+    idleFee:0.50,  // per min after grace
+    note:'$0.30–$0.50/kWh typical; $0.50–1.00/min idle fee after 5min'
+  },
+  'EVgo': {
+    kwh:0.48, hr:0,
+    tou:[
+      {label:'Peak',   start:'07:00',end:'22:00',kwh:0.59,hr:0},
+      {label:'Off-Peak',start:'22:00',end:'07:00',kwh:0.40,hr:0},
+      {label:'Early Bird',start:'05:00',end:'09:00',kwh:0.50,hr:0}
+    ],
+    minFee:0.99, minThresh:0,
+    sessionFee:0.99,
+    note:'$0.34–$0.64/kWh; $0.99 session fee; EVgo Plus $7.99/mo'
+  },
+  'ChargePoint': {
+    kwh:0.31, hr:2.00,
+    tou:[], minFee:0, minThresh:0,
+    note:'Prices set by site host; DC Fast ~$0.25-0.40/kWh or hourly'
+  },
+  'Blink': {
+    kwh:0.39, hr:0,
+    tou:[
+      {label:'Peak',   start:'08:00',end:'20:00',kwh:0.48,hr:0},
+      {label:'Off-Peak',start:'20:00',end:'08:00',kwh:0.32,hr:0}
+    ],
+    minFee:0, minThresh:0,
+    note:'Blink Plus $4.99/mo ~10% off'
+  },
+  'Shell Recharge': {
+    kwh:0.44, hr:0,
+    tou:[], minFee:1.50, minThresh:5,
+    note:'~$0.40-0.48/kWh DC Fast; roaming agreements with other networks'
+  },
+  'Rivian': {
+    kwh:0.58, hr:0,
+    tou:[
+      {label:'Peak',   start:'09:00',end:'21:00',kwh:0.64,hr:0},
+      {label:'Off-Peak',start:'21:00',end:'09:00',kwh:0.48,hr:0}
+    ],
+    minFee:0, minThresh:0,
+    note:'RAN ~$0.54-0.64/kWh; premium vs Tesla at same locations'
+  },
+  'IONITY': {
+    kwh:0.69, hr:0,
+    tou:[
+      {label:'Peak',   start:'07:00',end:'22:00',kwh:0.79,hr:0},
+      {label:'Off-Peak',start:'22:00',end:'07:00',kwh:0.59,hr:0}
+    ],
+    minFee:0, minThresh:0,
+    note:'EU/UK primarily; IONITY Passport ~€0.35/kWh'
+  },
+  'Volta': {
+    kwh:0, hr:0,
+    tou:[], minFee:0, minThresh:0,
+    note:'Free ad-supported L2; some fee-based DCFC locations'
+  },
+  'FLO': {
+    kwh:0.38, hr:0,
+    tou:[], minFee:0, minThresh:0,
+    note:'Primarily Canada; ~CAD $0.35-0.45/kWh'
+  },
+  'EV Connect': {
+    kwh:0.32, hr:1.50,
+    tou:[], minFee:0, minThresh:0,
+    note:'Site-dependent; often per-hour billing'
+  },
+  'BP Pulse': {
+    kwh:0.45, hr:0,
+    tou:[], minFee:0, minThresh:0,
+    note:'~$0.40-0.50/kWh; UK rates in GBP vary widely'
+  },
+  'Pilot Flying J': {
+    kwh:0.35, hr:0,
+    tou:[], minFee:1.00, minThresh:5,
+    note:'Highway corridor DCFC ~$0.30-0.40/kWh'
+  },
+  'Francis Energy': {
+    kwh:0.34, hr:0,
+    tou:[], minFee:0, minThresh:0,
+    note:'Oklahoma-based; competitive rural rates'
+  },
+  'Walmart': {
+    kwh:0.36, hr:0,
+    tou:[], minFee:0, minThresh:0,
+    note:'Expanding network; ~$0.30-0.40/kWh estimated'
+  },
+  // ── Level fallbacks ────────────────────────────────────────────────────
+  '__level2__':  {kwh:0.22,hr:2.50,tou:[],minFee:0,minThresh:0},
+  '__dcfast__':  {kwh:0.45,hr:0,tou:[],minFee:0.50,minThresh:3},
+  '__level1__':  {kwh:0,hr:0,tou:[],minFee:0,minThresh:0},
+};
+
+const OCM_CONNECTOR = {1:'J1772',2:'CHAdeMO',25:'Type 2',27:'NACS',30:'Tesla (Legacy)',32:'CCS (EU)',33:'CCS',1036:'NACS'};
+const OCM_LEVEL = {1:'L1',2:'L2',3:'DC Fast'};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+
+const S = {
+  map: null,
+  cluster: null,
+  markerMap: {},          // ocm_id → L.Marker
+  chargers: [],           // OCM data array
+  selectedCharger: null,  // OCM charger object
+  vehicle: VEHICLES[0],
+  mode: 'time',           // 'time' | 'percent'
+  durationMin: 30,
+  durationUnit: 'min',   // 'min' | 'hr'
+  startTime: 'now',      // 'now' | 'HH:MM'
+  socStart: 20,
+  socEnd: 80,
+  sub: SUBSCRIPTIONS[0],
+  pricing: defaultPricing(),
+  parking: defaultParking(),
+  result: null,
+  favorites: new Set(JSON.parse(localStorage.getItem('ev_favs') || '[]')),
+  fbCache: {},            // { ocm_id: pricing_obj }
+  pricingModified: false,
+  pricingSource: 'default',
+  ocmKey: localStorage.getItem('ev_ocm_key') || '',
+  fbApp: null,
+  fbDb: null,
+  filters: {network:'',level:'',connector:'',minKw:0,favOnly:false},
+  loading: false,
+  networkSet: new Set(),
+  chargerOverrides: JSON.parse(localStorage.getItem('ev_overrides') || '{}'),
+  clipboard: null,   // { pricing, parking, sourceNetwork, sourceKw, sourceName, copiedAt }
+  liveSession: null,   // { startTime, intervalId, baseResult }
+  autoCalc: false,
+};
+
+function defaultPricing() {
+  return {kwh:0.40,hr:0,tou:[],minFee:0.50,minThresh:3};
+}
+function defaultParking() {
+  return {enabled:false,type:'timed',firstHr:3,subseqHr:2,freeMin:0,flat:5};
+}
+
+// ═══════════════════════════════════════════════
+// FIREBASE
+// ═══════════════════════════════════════════════
+
+function initFirebase() {
+  try {
+    const raw = localStorage.getItem('ev_fb_config');
+    if (!raw) return;
+    const cfg = JSON.parse(raw);
+    if (!cfg.projectId) return;
+    if (!S.fbApp) S.fbApp = firebase.initializeApp(cfg, 'evcharge');
+    S.fbDb = firebase.firestore(S.fbApp);
+    setStatus('fb', 'on', 'Firebase');
+    loadAllFbPricing();
+  } catch(e) {
+    console.warn('Firebase init failed:', e);
+    setStatus('fb', 'off', 'Firebase');
+  }
+}
+
+async function loadAllFbPricing() {
+  if (!S.fbDb) return;
+  try {
+    const snap = await S.fbDb.collection('chargers').get();
+    snap.forEach(doc => { S.fbCache[doc.id] = doc.data(); });
+  } catch(e) { console.warn('FB load failed:', e); }
+}
+
+async function loadFbPricingForCharger(ocmId) {
+  if (S.fbCache[ocmId]) return S.fbCache[ocmId];
+  if (!S.fbDb) return null;
+  try {
+    const doc = await S.fbDb.collection('chargers').doc(String(ocmId)).get();
+    if (doc.exists) { S.fbCache[ocmId] = doc.data(); return doc.data(); }
+  } catch(e) {}
+  return null;
+}
+
+// ─── Copy / Paste Charger Stats ─────────────────────────────────────────
+
+function copyChargerStats() {
+  const name = S.selectedCharger
+    ? (S.selectedCharger.AddressInfo?.Title || 'Unknown Charger')
+    : 'Manual';
+  const network = S.selectedCharger ? getChargerNetwork(S.selectedCharger) : '';
+  const kw = S.selectedCharger ? getChargerKw(S.selectedCharger) : 0;
+
+  const ovId = S.selectedCharger ? String(S.selectedCharger.ID) : null;
+  const ov = ovId ? (S.chargerOverrides[ovId] || null) : null;
+  S.clipboard = {
+    pricing: JSON.parse(JSON.stringify(S.pricing)),
+    parking: JSON.parse(JSON.stringify(S.parking)),
+    overrideKw: ov && ov.enabled ? ov.kw : null,
+    overrideEnabled: ov ? ov.enabled : false,
+    sourceNetwork: network,
+    sourceKw: kw,
+    sourceName: name,
+    copiedAt: Date.now(),
+  };
+
+  // Also write to system clipboard as JSON for cross-tab paste
+  const jsonStr = JSON.stringify(S.clipboard, null, 2);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(jsonStr).catch(() => {});
+  }
+
+  // Update paste button
+  const pasteBtn = document.getElementById('pasteStatsBtn');
+  if (pasteBtn) {
+    pasteBtn.disabled = false;
+    pasteBtn.style.opacity = '1';
+    pasteBtn.style.cursor = 'pointer';
+    pasteBtn.title = 'Paste stats from: ' + name;
+  }
+
+  showToast('📋 Copied stats from ' + name.substring(0, 30));
+  renderClipboardBadge();
+}
+
+function pasteChargerStats() {
+  if (!S.clipboard) {
+    // Try reading from system clipboard
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(text => {
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed.pricing) {
+            applyClipboardData(parsed);
+          } else {
+            showToast('Clipboard does not contain charger stats');
+          }
+        } catch(e) {
+          showToast('Nothing to paste — copy stats from a charger first');
+        }
+      }).catch(() => showToast('Nothing to paste — copy stats from a charger first'));
+    } else {
+      showToast('Nothing to paste — copy stats from a charger first');
+    }
+    return;
+  }
+  applyClipboardData(S.clipboard);
+}
+
+function applyClipboardData(clip) {
+  S.pricing = JSON.parse(JSON.stringify(clip.pricing));
+  S.parking = JSON.parse(JSON.stringify(clip.parking));
+  // Apply override kW to current charger if present in clipboard
+  if (S.selectedCharger && clip.overrideKw != null) {
+    const id = String(S.selectedCharger.ID);
+    S.chargerOverrides[id] = {enabled: clip.overrideEnabled, kw: clip.overrideKw};
+    localStorage.setItem('ev_overrides', JSON.stringify(S.chargerOverrides));
+  }
+  renderPricingAccordion();
+  renderParkingAccordion();
+  renderChargerCard();
+  updatePricingSummary();
+  updateParkingSummary();
+  markPricingModified();
+
+  // Open pricing accordion so user sees what was pasted
+  const body = document.getElementById('pricingBody');
+  const chev = document.getElementById('pricingChev');
+  if (body && body.style.display === 'none') {
+    body.style.display = '';
+    if (chev) chev.classList.add('open');
+  }
+
+  const from = clip.sourceName ? clip.sourceName.substring(0, 30) : 'another charger';
+  showToast('📌 Pasted stats from ' + from + ' — review & save');
+  scheduleAutoCalc();
+}
+
+function renderClipboardBadge() {
+  // Show a small badge near the pricing accordion header if clipboard has data
+  const existing = document.getElementById('clipBadge');
+  if (existing) existing.remove();
+  if (!S.clipboard) return;
+  const header = document.querySelector('.acc-header');
+  if (!header) return;
+  const badge = document.createElement('span');
+  badge.id = 'clipBadge';
+  badge.title = 'Clipboard has stats from: ' + S.clipboard.sourceName;
+  badge.style.cssText = 'display:inline-flex;align-items:center;gap:3px;padding:1px 5px;background:rgba(0,232,122,.1);border:1px solid rgba(0,232,122,.25);border-radius:3px;font-size:9px;color:var(--a);font-family:var(--mo);margin-left:6px;cursor:pointer';
+  badge.textContent = '📋 ready';
+  badge.onclick = (e) => { e.stopPropagation(); pasteChargerStats(); };
+  document.querySelector('.acc-header .acc-title').appendChild(badge);
+}
+
+async function savePricingToFirebase() {
+  if (!S.selectedCharger) return alert('Select a charger first.');
+  const data = {
+    ocm_id: S.selectedCharger.ID,
+    network: getChargerNetwork(S.selectedCharger),
+    level: getChargerLevel(S.selectedCharger),
+    max_kw: getChargerKw(S.selectedCharger),
+    pricing: {...S.pricing},
+    parking: {...S.parking},
+    updated: Date.now(),
+    by: 'community',
+  };
+  const id = String(S.selectedCharger.ID);
+  // Save to localStorage always
+  const local = JSON.parse(localStorage.getItem('ev_local_pricing') || '{}');
+  local[id] = data;
+  localStorage.setItem('ev_local_pricing', JSON.stringify(local));
+  S.fbCache[id] = data;
+  // Save to Firebase if available
+  if (S.fbDb) {
+    try {
+      await S.fbDb.collection('chargers').doc(id).set(data, {merge:true});
+      showToast('✓ Saved to community database');
+      S.pricingSource = 'community';
+      renderChargerCard();
+    } catch(e) {
+      showToast('Saved locally (Firebase error)');
+    }
+  } else {
+    showToast('Saved locally (Firebase not configured)');
+    S.pricingSource = 'local';
+    renderChargerCard();
+  }
+  S.pricingModified = false;
+  document.getElementById('savePricingBtn').style.display = 'none';
+}
+
+async function testFirebase() {
+  const raw = document.getElementById('fbConfigInput').value.trim();
+  const el = document.getElementById('fbTestResult');
+  try {
+    const cfg = JSON.parse(raw);
+    const testApp = firebase.initializeApp(cfg, 'evcharge_test_' + Date.now());
+    const testDb = firebase.firestore(testApp);
+    await testDb.collection('_ping').doc('test').set({t: Date.now()});
+    el.innerHTML = '<span style="color:var(--a)">✓ Connection successful!</span>';
+  } catch(e) {
+    el.innerHTML = `<span style="color:var(--d)">✗ Failed: ${e.message}</span>`;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════
+
+function openSettings() {
+  document.getElementById('settingsModal').style.display = 'grid';
+  // Clear the override inputs — never pre-fill them with actual key values
+  document.getElementById('ocmKeyInput').value = '';
+  document.getElementById('fbConfigInput').value = '';
+  // Show status badges instead
+  const ocmSet = !!S.ocmKey;
+  const source = window.EVCHARGE_CONFIG?.ocmKey ? 'via deploy secrets' : 'manual entry';
+  document.getElementById('ocmKeyStatus').innerHTML = ocmSet
+    ? `<span style="color:var(--a)">✓ Key active</span><span style="color:var(--m);font-size:10px">(${source} — not shown for security)</span>`
+    : `<span style="color:var(--w)">⚠ No key set</span><span style="color:var(--m);font-size:10px">Anonymous access — may be rate-limited</span>`;
+  const fbRaw = localStorage.getItem('ev_fb_config');
+  let fbProjectId = null;
+  try { fbProjectId = JSON.parse(fbRaw)?.projectId; } catch(e) {}
+  document.getElementById('fbStatus').innerHTML = fbProjectId
+    ? `<span style="color:var(--a)">✓ Connected</span><span style="color:var(--m);font-size:10px">Project: ${fbProjectId}</span>`
+    : `<span style="color:var(--w)">⚠ Not configured</span><span style="color:var(--m);font-size:10px">Pricing saved locally only</span>`;
+}
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+function clearOcmKey() {
+  S.ocmKey = '';
+  localStorage.removeItem('ev_ocm_key');
+  showToast('OCM key cleared — using anonymous access');
+  openSettings();
+}
+function clearFbConfig() {
+  localStorage.removeItem('ev_fb_config');
+  S.fbDb = null; S.fbApp = null;
+  setStatus('fb', 'off', 'Firebase');
+  showToast('Firebase config cleared');
+  openSettings();
+}
+function saveSettings() {
+  // OCM key — only update if user typed something new
+  const newOcm = document.getElementById('ocmKeyInput').value.trim();
+  if (newOcm) {
+    S.ocmKey = newOcm;
+    localStorage.setItem('ev_ocm_key', newOcm);
+    showToast('OCM key updated');
+  }
+  // Firebase — only update if user pasted something new
+  const raw = document.getElementById('fbConfigInput').value.trim();
+  if (raw) {
+    try {
+      JSON.parse(raw);
+      localStorage.setItem('ev_fb_config', raw);
+      initFirebase();
+      showToast('Firebase config updated');
+    } catch(e) { alert('Invalid JSON in Firebase config.'); return; }
+  }
+  closeSettings();
+  if (newOcm) setStatus('ocm', 'on', 'OCM');
+}
+
+// ═══════════════════════════════════════════════
+// OCM API
+// ═══════════════════════════════════════════════
+
+// ── OCM fetch with multi-proxy fallback ──────────────────────────────────────
+// Tries proxies in order; each rewrites the URL to bypass CORS on file:// & GitHub Pages.
+const CORS_PROXIES = [
+  url => 'https://corsproxy.io/?' + encodeURIComponent(url),
+  url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+  url => 'https://cors-anywhere.herokuapp.com/' + url,
+];
+
+async function fetchWithProxyFallback(url) {
+  const attempts = [];
+
+  async function tryFetch(label, fetchUrl) {
+    try {
+      console.log('[OCM] Trying', label, fetchUrl.substring(0, 80) + '...');
+      const r = await fetch(fetchUrl, {signal: AbortSignal.timeout(10000)});
+      console.log('[OCM]', label, '→ status', r.status, r.headers.get('content-type'));
+      if (!r.ok) { attempts.push(label + ':HTTP' + r.status); return null; }
+      const text = await r.text();
+      console.log('[OCM]', label, '→ response length', text.length, 'first 200:', text.substring(0,200));
+      // unwrap allorigins {contents:"..."}
+      let parsed;
+      try { parsed = JSON.parse(text); } catch(e) { attempts.push(label+':JSONerr'); return null; }
+      if (parsed && parsed.contents) {
+        try { parsed = JSON.parse(parsed.contents); } catch(e) {}
+      }
+      if (!Array.isArray(parsed)) {
+        console.warn('[OCM]', label, '→ not an array, got:', typeof parsed, JSON.stringify(parsed).substring(0,200));
+        attempts.push(label + ':NotArray'); return null;
+      }
+      console.log('[OCM]', label, '→ SUCCESS', parsed.length, 'chargers');
+      if (parsed.length > 0) {
+        const s = parsed[0];
+        console.log('[OCM] First charger keys:', Object.keys(s).join(', '));
+        console.log('[OCM] OperatorInfo:', JSON.stringify(s.OperatorInfo));
+        console.log('[OCM] OperatorsReference:', s.OperatorsReference);
+        console.log('[OCM] UsageType:', JSON.stringify(s.UsageType));
+        console.log('[OCM] DataProviderID:', s.DataProviderID, 'DataProvider:', JSON.stringify(s.DataProvider));
+      }
+      return parsed;
+    } catch(e) {
+      console.warn('[OCM]', label, '→ exception:', e.message);
+      attempts.push(label + ':' + e.message.substring(0,30));
+      return null;
+    }
+  }
+
+  // 1. Direct (works if API key registered with OCM — they whitelist CORS for key holders)
+  if (S.ocmKey) {
+    const result = await tryFetch('direct+key', url);
+    if (result) return result;
+  }
+
+  // 2. corsproxy.io
+  {
+    const result = await tryFetch('corsproxy.io', 'https://corsproxy.io/?' + encodeURIComponent(url));
+    if (result) return result;
+  }
+
+  // 3. allorigins
+  {
+    const result = await tryFetch('allorigins', 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
+    if (result) return result;
+  }
+
+  // 4. cors.sh (free, no signup)
+  {
+    const result = await tryFetch('cors.sh', 'https://cors.sh/' + url);
+    if (result) return result;
+  }
+
+  // 5. thingproxy
+  {
+    const result = await tryFetch('thingproxy', 'https://thingproxy.freeboard.io/fetch/' + url);
+    if (result) return result;
+  }
+
+  throw new Error('All proxies failed: ' + attempts.join(', '));
+}
+
+let _loadDebounce = null;
+function scheduleChargerLoad() {
+  clearTimeout(_loadDebounce);
+  _loadDebounce = setTimeout(loadChargersForView, 600);
+}
+
+async function loadChargersForView() {
+  if (!S.map) return;
+  const bounds = S.map.getBounds();
+  const center = bounds.getCenter();
+  const zoom = S.map.getZoom();
+  if (zoom < 9) { showMapMsg('Zoom in to see chargers'); return; }
+  hideMapMsg();
+  showLoader(true);
+  try {
+    const key = S.ocmKey ? '&key=' + S.ocmKey : '';
+    const url = 'https://api.openchargemap.io/v3/poi/?output=json&latitude=' + center.lat + '&longitude=' + center.lng + '&distance=15&distanceunit=Miles&maxresults=150&verbose=false' + key;
+    const data = await fetchWithProxyFallback(url);
+    S.chargers = Array.isArray(data) ? data : [];
+    buildNetworkFilter(S.chargers);
+    renderMarkers(S.chargers);
+    setStatus('ocm', 'on', 'OCM ✓');
+  } catch(e) {
+    console.warn('OCM error:', e);
+    setStatus('ocm', 'warn', 'OCM!');
+    showMapMsg('Could not load chargers — add a free OCM API key in ⚙ Settings to improve reliability.');
+  }
+  showLoader(false);
+}
+
+function buildNetworkFilter(chargers) {
+  const sel = document.getElementById('fNetwork');
+  const cur = sel.value;
+  const nets = new Set();
+  chargers.forEach(c => {
+    const op = getChargerOperator(c);
+    if (op.name && op.name !== 'Unknown') nets.add(op.name);
+  });
+  // Debug: log first charger structure to help diagnose
+  if (chargers.length > 0 && !S._debuggedOCM) {
+    S._debuggedOCM = true;
+    console.group('[EVCharge] OCM Data Debug');
+    console.log('Total chargers:', chargers.length);
+    // Log first 5 chargers' operator data
+    chargers.slice(0, 5).forEach((c, i) => {
+      console.group('Charger #' + i + ' ID:' + c.ID);
+      console.log('  OperatorInfo:', c.OperatorInfo ? JSON.stringify(c.OperatorInfo) : 'MISSING');
+      console.log('  OperatorsReference:', c.OperatorsReference);
+      console.log('  DataProvider:', c.DataProvider ? JSON.stringify(c.DataProvider) : 'MISSING');
+      console.log('  Resolved:', JSON.stringify(getChargerOperator(c)));
+      console.groupEnd();
+    });
+    // Count resolution methods
+    let fromOperatorInfo = 0, fromRef = 0, fromDataProvider = 0, unknown = 0;
+    chargers.forEach(c => {
+      if (c.OperatorInfo?.Title) fromOperatorInfo++;
+      else if (c.OperatorsReference != null && OCM_OPERATOR_MAP[c.OperatorsReference] && OCM_OPERATOR_MAP[c.OperatorsReference] !== 'Unknown') fromRef++;
+      else if (c.DataProvider?.Title) fromDataProvider++;
+      else unknown++;
+    });
+    console.log('Resolution stats → OperatorInfo:', fromOperatorInfo, '| OperatorsRef:', fromRef, '| DataProvider:', fromDataProvider, '| Unknown:', unknown);
+    console.groupEnd();
+  }
+  // Merge with existing
+  nets.forEach(n => S.networkSet.add(n));
+  sel.innerHTML = '<option value="">All Networks</option>';
+  [...S.networkSet].sort().forEach(n => {
+    const o = document.createElement('option');
+    o.value = n; o.textContent = n;
+    if (n === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// CHARGER HELPERS
+// ═══════════════════════════════════════════════
+
+// OCM compact mode strips OperatorInfo — map OperatorsReference ID to name
+// IDs sourced from OCM API reference list (most common US/global networks)
+const OCM_OPERATOR_MAP = {
+  1:'Unknown',2:'Unknown',
+  3:'ChargePoint',            // ChargePoint Network
+  4:'Blink',                  // Blink Network
+  5:'Tesla',                  // Tesla (Supercharger)
+  6:'AeroVironment',
+  7:'EVgo',                   // NRG EVgo
+  8:'Electrify America',      // Electrify America
+  9:'Greenlots',
+  10:'GE Watt Station',
+  11:'Car Charging Group',
+  12:'eVgo',
+  13:'ChargePoint',
+  14:'eVgo Freedom Station',
+  15:'OpConnect',
+  16:'Coulomb (ChargePoint)',
+  17:'EV Connect',
+  18:'EVCS',
+  19:'FLO',
+  20:'SemaCharge',
+  21:'Sun Country Highway',
+  22:'BCAA',
+  23:'Tesla',                  // Tesla Destination
+  24:'Charge.ca',
+  25:'SemaConnect',
+  26:'Webasto',
+  27:'PlugShare',
+  28:'Greenlots',
+  29:'EDF',
+  30:'Pod Point',
+  31:'Charge Your Car',
+  32:'Ecotricity',
+  33:'Nissan',
+  34:'Volta',                  // Volta Charging
+  35:'EVBox',
+  36:'NewMotion',
+  37:'InCharge',
+  38:'Allego',
+  39:'Hubject',
+  40:'Smatrics',
+  41:'IONITY',
+  42:'Fastned',
+  43:'BP Pulse',
+  44:'Shell Recharge',
+  45:'Osprey',
+  46:'Connected Kerb',
+  47:'Believ',
+  48:'Osprey',
+  49:'GeniePoint',
+  50:'Mer',
+  51:'Engenie',
+  52:'Zap-Map',
+  53:'Ubitricity',
+  54:'Eneco',
+  55:'Vattenfall',
+  56:'LastMile Solutions',
+  57:'Electrify America',
+  58:'EVgo',
+  59:'Rivian',                 // Rivian Adventure Network
+  60:'Walmart',
+  61:'Francis Energy',
+  62:'Pilot Flying J',
+  63:'Sheetz',
+  64:'Wawa',
+  65:'7-Eleven',
+  66:'Loves Travel Stops',
+  67:'TurnOnGreen',
+  68:'OpConnect',
+  69:'EV Range',
+  70:'NRCAN',
+  71:'Flo',
+  72:'AddÉnergie',
+  73:'Circuit Électrique',
+  74:'Sun Country',
+  75:'BC Hydro EV',
+  76:'Petro-Canada',
+  77:'Tesla',
+  // Extended — OCM uses high IDs too
+  3534:'Electrify America',
+  4169:'EVgo',
+  21:'Sun Country Highway',
+  3046:'Rivian',
+  2:'Unknown Operator',
+};
+
+
+// Known network website URLs (fallback when OperatorInfo.WebsiteURL is absent)
+const NETWORK_WEBSITES = {
+  'Electrify America': 'https://www.electrifyamerica.com',
+  'Tesla':             'https://www.tesla.com/supercharger',
+  'EVgo':              'https://www.evgo.com',
+  'ChargePoint':       'https://www.chargepoint.com',
+  'Blink':             'https://www.blinkcharging.com',
+  'Shell Recharge':    'https://www.shell.com/electric-vehicle-charging.html',
+  'Rivian':            'https://rivian.com/adventure-network',
+  'IONITY':            'https://ionity.eu',
+  'FLO':               'https://www.flo.com',
+  'Volta':             'https://voltacharging.com',
+  'EV Connect':        'https://www.evconnect.com',
+  'BP Pulse':          'https://www.bppulse.com',
+  'Pilot Flying J':    'https://pilotflyingj.com/ev',
+  'Walmart':           'https://www.walmart.com/cp/ev-charging',
+  'Francis Energy':    'https://www.francisenergy.com',
+  'Greenlots':         'https://greenlots.com',
+  'EVCS':              'https://evcs.com',
+  'SemaConnect':       'https://semaconnect.com',
+  'OpConnect':         'https://opconnect.com',
+  'Webasto':           'https://www.webasto-charging.com',
+  'BC Hydro EV':       'https://www.bchydro.com/evpubliccharging',
+  'Petro-Canada':      'https://www.petro-canada.ca/en/personal/electric-vehicle-chargers',
+  'Circuit Électrique':'https://lecircuitelectrique.com',
+};
+
+function getChargerOperator(c) {
+  // Full OperatorInfo object present (non-compact mode)
+  if (c.OperatorInfo) {
+    const title = c.OperatorInfo.Title;
+    const name  = title ? normalizeNetworkName(title) : null;
+    const url   = c.OperatorInfo.WebsiteURL || (name && NETWORK_WEBSITES[name]) || null;
+    if (name && name !== 'Unknown') return { name, url };
+  }
+  // Numeric ID fallback
+  if (c.OperatorsReference != null) {
+    const mapped = OCM_OPERATOR_MAP[c.OperatorsReference];
+    if (mapped && mapped !== 'Unknown') {
+      return { name: mapped, url: NETWORK_WEBSITES[mapped] || null };
+    }
+  }
+  // DataProvider last resort
+  if (c.DataProvider?.Title) {
+    const name = normalizeNetworkName(c.DataProvider.Title);
+    return { name, url: NETWORK_WEBSITES[name] || null };
+  }
+  return { name: 'Unknown', url: null };
+}
+
+function getChargerNetwork(c) {
+  return getChargerOperator(c).name;
+}
+
+function normalizeNetworkName(raw) {
+  if (!raw) return 'Unknown';
+  const r = raw.trim();
+  if (/electrify.?america/i.test(r)) return 'Electrify America';
+  if (/tesla|supercharger/i.test(r)) return 'Tesla';
+  if (/evgo|nrg.*ev/i.test(r)) return 'EVgo';
+  if (/chargepoint/i.test(r)) return 'ChargePoint';
+  if (/blink/i.test(r)) return 'Blink';
+  if (/shell.?recharge/i.test(r)) return 'Shell Recharge';
+  if (/rivian/i.test(r)) return 'Rivian';
+  if (/volta/i.test(r)) return 'Volta';
+  if (/ionity/i.test(r)) return 'IONITY';
+  if (/flo|addénergie/i.test(r)) return 'FLO';
+  if (/pilot.?flying/i.test(r)) return 'Pilot Flying J';
+  if (/walmart/i.test(r)) return 'Walmart';
+  if (/francis/i.test(r)) return 'Francis Energy';
+  if (/bp.?pulse/i.test(r)) return 'BP Pulse';
+  if (/ev.?connect/i.test(r)) return 'EV Connect';
+  return r;
+}
+function getChargerLevel(c) {
+  const conns = c.Connections || [];
+  const levels = conns.map(cn => cn.LevelID).filter(Boolean);
+  return Math.max(...levels, 0) || 2;
+}
+function getChargerKw(c) {
+  const conns = c.Connections || [];
+  const kws = conns.map(cn => cn.PowerKW).filter(Boolean);
+  return kws.length ? Math.max(...kws) : 0;
+}
+function getChargerConnectors(c) {
+  const conns = c.Connections || [];
+  const types = [...new Set(conns.map(cn => OCM_CONNECTOR[cn.ConnectionTypeID] || cn.ConnectionType?.Title || '?'))];
+  return types.filter(t => t && t !== '?');
+}
+function getChargerStatus(c) {
+  const id = c.StatusTypeID;
+  if (id === 50 || id === 200) return 'available';
+  if (id === 100 || id === 210) return 'in-use';
+  return 'unknown';
+}
+
+// ═══════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════
+
+function initMap(lat, lng) {
+  S.map = L.map('map', {zoomControl:true}).setView([lat, lng], 12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution:'© <a href="https://openstreetmap.org">OSM</a> © <a href="https://carto.com">CARTO</a> | <a href="https://openchargemap.org">OpenChargeMap</a>',
+    subdomains:'abcd', maxZoom:19
+  }).addTo(S.map);
+  // Subtle road labels layer on top
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+    subdomains:'abcd', maxZoom:19, opacity:0.5
+  }).addTo(S.map);
+
+  S.cluster = L.markerClusterGroup({
+    maxClusterRadius:40,
+    iconCreateFunction: function(cluster) {
+      const n = cluster.getChildCount();
+      return L.divIcon({
+        html:`<div style="background:var(--a);color:#000;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:11px;font-family:var(--mo);box-shadow:0 2px 8px rgba(0,232,122,.4)">${n}</div>`,
+        className:'',iconSize:[28,28],iconAnchor:[14,14]
+      });
+    }
+  });
+  S.map.addLayer(S.cluster);
+  S.map.on('moveend', scheduleChargerLoad);
+  loadChargersForView();
+}
+
+// Network → short label + color for marker
+const NETWORK_MARKER = {
+  'Electrify America': {short:'EA',  color:'#0063CE'},
+  'Tesla':             {short:'TES', color:'#e31937'},
+  'EVgo':              {short:'EVG', color:'#7dc24b'},
+  'ChargePoint':       {short:'CP',  color:'#f57e25'},
+  'Blink':             {short:'BLK', color:'#00aeef'},
+  'Shell Recharge':    {short:'SHL', color:'#fbce07'},
+  'Rivian':            {short:'RIV', color:'#00a7a7'},
+  'IONITY':            {short:'ION', color:'#e40046'},
+  'FLO':               {short:'FLO', color:'#0080c6'},
+  'Volta':             {short:'VLT', color:'#6fbe44'},
+  'EV Connect':        {short:'EVC', color:'#00b4e0'},
+  'BP Pulse':          {short:'BP',  color:'#009900'},
+  'Pilot Flying J':    {short:'PFJ', color:'#003087'},
+  'Walmart':           {short:'WMT', color:'#0071ce'},
+};
+
+function makeMarkerIcon(charger, selected) {
+  const level = getChargerLevel(charger);
+  const network = getChargerNetwork(charger);
+  const nm = NETWORK_MARKER[network];
+  const levelColors = {1:'#8587a6', 2:'#4b9fff', 3:'#00e87a'};
+  const bgColor = selected ? '#ffaa00' : (nm ? nm.color : levelColors[level] || '#8587a6');
+  const lbl = nm ? nm.short : (level === 3 ? '⚡' : (level === 2 ? 'L2' : 'L1'));
+  const size = selected ? 34 : (nm ? 28 : 22);
+  const fontSize = nm ? (selected ? 9 : 8) : (level===3 ? 11 : 9);
+  const textColor = ['#fbce07','#f57e25','#00e87a'].includes(bgColor) ? '#000' : '#fff';
+  return L.divIcon({
+    html:`<div style="width:${size}px;height:${size}px;background:${bgColor};border-radius:${nm?'5px':'50%'};display:grid;place-items:center;color:${textColor};font-size:${fontSize}px;font-weight:800;font-family:var(--mo);box-shadow:0 2px 10px rgba(0,0,0,.5);border:${selected?'2px solid #fff':'1.5px solid rgba(255,255,255,.25)'};transition:all .2s;letter-spacing:-.5px">${lbl}</div>`,
+    className:'', iconSize:[size,size], iconAnchor:[size/2,size/2]
+  });
+}
+
+function renderMarkers(chargers) {
+  S.cluster.clearLayers();
+  S.markerMap = {};
+  const filtered = chargers.filter(matchesFilters);
+  filtered.forEach(c => {
+    const lat = c.AddressInfo?.Latitude;
+    const lng = c.AddressInfo?.Longitude;
+    if (!lat || !lng) return;
+    const marker = L.marker([lat, lng], {icon: makeMarkerIcon(c, false)});
+    marker.on('click', () => selectCharger(c, marker));
+    marker.bindPopup(buildPopup(c), {maxWidth:260,minWidth:180});
+    S.cluster.addLayer(marker);
+    S.markerMap[c.ID] = marker;
+  });
+  if (filtered.length === 0 && chargers.length > 0) {
+    showMapMsg('No chargers match current filters.');
+  } else {
+    hideMapMsg();
+  }
+}
+
+function buildPopup(c) {
+  const op = getChargerOperator(c);
+  const network = op.name;
+  const networkUrl = op.url;
+  const kw = getChargerKw(c);
+  const level = OCM_LEVEL[getChargerLevel(c)] || 'L2';
+  const connectors = getChargerConnectors(c).slice(0,3).join(', ');
+  const address = [c.AddressInfo?.Title, c.AddressInfo?.Town, c.AddressInfo?.StateOrProvince].filter(Boolean).join(', ');
+  const pricing = estimatePricing(c);
+  const costLine = pricing.kwh > 0 ? `~$${pricing.kwh}/kWh` : (pricing.hr > 0 ? `~$${pricing.hr}/hr` : 'Free / Unknown');
+  const container = document.createElement('div');
+  container.className = 'popup-inner';
+  container.innerHTML = `
+    <div class="popup-name">${c.AddressInfo?.Title || 'Charging Station'}</div>
+    <div class="popup-network">
+      ${networkUrl
+        ? `<a href="${networkUrl}" target="_blank" rel="noopener" style="color:var(--a);text-decoration:none">${network}</a>`
+        : `<span>${network}</span>`
+      } · ${address.substring(0,40)}
+    </div>
+    <div class="popup-specs">
+      <span class="popup-spec hi">${kw > 0 ? kw+'kW' : '?kW'}</span>
+      <span class="popup-spec hi">${level}</span>
+      ${connectors ? `<span class="popup-spec">${connectors}</span>` : ''}
+    </div>
+    <div class="popup-cost">${costLine}${pricing.source==='default'?' (est.)':''}</div>
+    ${c.UsageType?.IsMembershipRequired ? '<div style="font-size:10px;color:var(--w);margin-bottom:4px">🔑 Membership required</div>' : ''}
+    ${c.UsageType?.IsPayAtLocation ? '<div style="font-size:10px;color:var(--info);margin-bottom:4px">💳 Pay at location</div>' : ''}
+    <button class="popup-btn" onclick="selectChargerById(${c.ID})">Use This Charger →</button>
+  `;
+  return container;
+}
+
+function selectChargerById(id) {
+  const c = S.chargers.find(x => x.ID === id);
+  if (c) selectCharger(c, S.markerMap[id]);
+}
+
+async function selectCharger(c, marker) {
+  // Deselect previous
+  if (S.selectedCharger && S.markerMap[S.selectedCharger.ID]) {
+    S.markerMap[S.selectedCharger.ID].setIcon(makeMarkerIcon(S.selectedCharger, false));
+  }
+  S.selectedCharger = c;
+  if (marker) marker.setIcon(makeMarkerIcon(c, true));
+
+  // Load pricing
+  const id = String(c.ID);
+  // Check local storage first
+  const local = JSON.parse(localStorage.getItem('ev_local_pricing') || '{}');
+  let fbData = local[id] || S.fbCache[id] || null;
+  if (!fbData) fbData = await loadFbPricingForCharger(id);
+
+  if (fbData && fbData.pricing) {
+    S.pricing = {...fbData.pricing};
+    S.pricingSource = fbData.by === 'community' ? 'community' : 'local';
+  } else {
+    S.pricing = buildEstimatedPricing(c);
+    S.pricingSource = S.pricing._source || 'default';
+  }
+  if (fbData && fbData.parking) S.parking = {...fbData.parking};
+  S.pricingModified = false;
+
+  renderChargerCard();
+  autoSelectSubscription(getChargerNetwork(c));
+  renderPricingAccordion();
+  scheduleAutoCalc();
+  renderParkingAccordion();
+  updatePricingSummary();
+  updateParkingSummary();
+  document.getElementById('savePricingBtn').style.display = 'none';
+}
+
+function matchesFilters(c) {
+  const f = S.filters;
+  if (f.favOnly && !S.favorites.has(c.ID)) return false;
+  if (f.network) {
+    const n = getChargerOperator(c).name;
+    if (!n.toLowerCase().includes(f.network.toLowerCase())) return false;
+  }
+  if (f.level) {
+    if (getChargerLevel(c) !== parseInt(f.level)) return false;
+  }
+  if (f.connector) {
+    const connectors = getChargerConnectors(c);
+    if (!connectors.some(cn => cn.includes(f.connector))) return false;
+  }
+  if (f.minKw > 0) {
+    if (getChargerKw(c) < f.minKw) return false;
+  }
+  return true;
+}
+
+function applyFilters() {
+  S.filters.network = document.getElementById('fNetwork').value;
+  S.filters.level = document.getElementById('fLevel').value;
+  S.filters.connector = document.getElementById('fConnector').value;
+  S.filters.minKw = parseInt(document.getElementById('fMinKw').value) || 0;
+  renderMarkers(S.chargers);
+}
+function clearFilters() {
+  document.getElementById('fNetwork').value = '';
+  document.getElementById('fLevel').value = '';
+  document.getElementById('fConnector').value = '';
+  document.getElementById('fMinKw').value = 0;
+  document.getElementById('fKwVal').textContent = '0kW';
+  S.filters = {network:'',level:'',connector:'',minKw:0,favOnly:false};
+  document.getElementById('favToggle').classList.remove('active');
+  renderMarkers(S.chargers);
+}
+function toggleFavFilter() {
+  S.filters.favOnly = !S.filters.favOnly;
+  document.getElementById('favToggle').classList.toggle('active', S.filters.favOnly);
+  renderMarkers(S.chargers);
+}
+
+async function searchLocation() {
+  const q = document.getElementById('locationSearch').value.trim();
+  if (!q) return;
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`);
+    const data = await res.json();
+    if (data.length > 0) {
+      S.map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 13);
+    } else { showToast('Location not found'); }
+  } catch(e) { showToast('Search failed'); }
+}
+
+function locateMe() {
+  if (!navigator.geolocation) return showToast('Geolocation not supported');
+  navigator.geolocation.getCurrentPosition(pos => {
+    S.map.setView([pos.coords.latitude, pos.coords.longitude], 13);
+  }, () => showToast('Location access denied'));
+}
+
+// ═══════════════════════════════════════════════
+// PRICING ESTIMATION
+// ═══════════════════════════════════════════════
+
+function buildEstimatedPricing(charger) {
+  const network = getChargerNetwork(charger);
+  const level = getChargerLevel(charger);
+
+  // 1. Check community cache by network
+  const cacheVals = Object.values(S.fbCache).filter(x => x.network === network && x.pricing);
+  if (cacheVals.length >= 2) {
+    const med = medianPricing(cacheVals.map(x => x.pricing));
+    med._source = 'network_estimate';
+    return med;
+  }
+
+  // 2. Known network defaults
+  for (const [key, def] of Object.entries(NETWORK_DEFAULTS)) {
+    if (network.toLowerCase().includes(key.toLowerCase())) {
+      return {kwh:def.kwh, hr:def.hr, tou:[...def.tou.map(t=>({...t}))], minFee:def.minFee, minThresh:def.minThresh, _source:'brand_default'};
+    }
+  }
+
+  // 3. Level-based default
+  const levelKey = level === 3 ? '__dcfast__' : (level === 1 ? '__level1__' : '__level2__');
+  const ld = NETWORK_DEFAULTS[levelKey];
+  return {kwh:ld.kwh, hr:ld.hr, tou:[...ld.tou], minFee:ld.minFee, minThresh:ld.minThresh, _source:'default'};
+}
+
+function medianPricing(pricings) {
+  const kwhs = pricings.map(p => p.kwh || p.default_cost_per_kwh || 0).sort((a,b)=>a-b);
+  const hrs = pricings.map(p => p.hr || p.default_cost_per_hour || 0).sort((a,b)=>a-b);
+  const mid = i => i[Math.floor(i.length/2)];
+  return {kwh: mid(kwhs), hr: mid(hrs), tou:[], minFee:0, minThresh:3};
+}
+
+function estimatePricing(charger) {
+  const id = String(charger.ID);
+  const local = JSON.parse(localStorage.getItem('ev_local_pricing') || '{}');
+  if (local[id] && local[id].pricing) return {...local[id].pricing, source:'local'};
+  if (S.fbCache[id] && S.fbCache[id].pricing) return {...S.fbCache[id].pricing, source:'community'};
+  const est = buildEstimatedPricing(charger);
+  return {...est, source:est._source || 'default'};
+}
+
+// ═══════════════════════════════════════════════
+// PHYSICS ENGINE
+// ═══════════════════════════════════════════════
+
+function chargeRateKw(vehicleMaxKw, chargerKw, soc) {
+  const peak = Math.min(vehicleMaxKw, chargerKw);
+  if (soc <= 0.80) return peak;
+  const taper = 1.0 - 0.9 * ((soc - 0.80) / 0.20);
+  return peak * Math.max(taper, 0.10);
+}
+
+function getTouRate(pricing, elapsedMin, startHour) {
+  const totalMin = startHour * 60 + elapsedMin;
+  const hm = (totalMin % 1440);
+  for (const iv of (pricing.tou || [])) {
+    const [sh,sm] = iv.start.split(':').map(Number);
+    const [eh,em] = iv.end.split(':').map(Number);
+    const s = sh*60+sm, e = eh*60+em;
+    if (s < e) { if (hm >= s && hm < e) return {kwh:iv.kwh||iv.cost_per_kwh||0,hr:iv.hr||iv.cost_per_hour||0,label:iv.label}; }
+    else { if (hm >= s || hm < e) return {kwh:iv.kwh||iv.cost_per_kwh||0,hr:iv.hr||iv.cost_per_hour||0,label:iv.label}; }
+  }
+  return {kwh:pricing.kwh||pricing.default_cost_per_kwh||0,hr:pricing.hr||pricing.default_cost_per_hour||0,label:'Default'};
+}
+
+function calcParkingCost(parking, durationMin) {
+  if (!parking.enabled) return 0;
+  if (parking.type === 'flat') return parseFloat(parking.flat) || 0;
+  const billable = Math.max(0, durationMin - (parking.freeMin || 0));
+  if (billable <= 0) return 0;
+  const hours = billable / 60;
+  if (hours <= 1) return hours * (parking.firstHr || 0);
+  return (parking.firstHr || 0) + (hours - 1) * (parking.subseqHr || 0);
+}
+
+function runCalc(vehicle, chargerKw, pricing, parking, mode, durationMin, socStartPct, socEndPct, subDiscountPct, startHour, sessionFee=0) {
+  const warnings = [];
+  let totalKwh = 0, duration = 0;
+  let socStart = socStartPct / 100, socEnd = socEndPct / 100;
+  let socFinal = socStart;
+  const DT = 0.5, DTH = DT / 60;
+
+  if (mode === 'time') {
+    duration = durationMin;
+    let soc = socStart, elapsed = 0;
+    while (elapsed < durationMin) {
+      const step = Math.min(DT, durationMin - elapsed);
+      const rate = chargeRateKw(vehicle.maxDc, chargerKw, soc);
+      let kwh = rate * (step / 60);
+      let inc = kwh / vehicle.battery;
+      if (soc + inc >= 1) {
+        inc = 1 - soc; kwh = inc * vehicle.battery;
+        totalKwh += kwh; elapsed += step; soc = 1;
+        if (elapsed < durationMin) warnings.push('Battery reached 100% before session end.');
+        break;
+      }
+      soc += inc; elapsed += step; totalKwh += kwh;
+    }
+    socFinal = soc;
+  } else {
+    let soc = socStart;
+    while (soc < socEnd - 1e-6) {
+      const rate = chargeRateKw(vehicle.maxDc, chargerKw, soc);
+      let kwh = rate * DTH;
+      let inc = kwh / vehicle.battery;
+      if (soc + inc > socEnd) { inc = socEnd - soc; kwh = inc * vehicle.battery; }
+      soc += inc; duration += DT; totalKwh += kwh;
+    }
+    socFinal = soc;
+  }
+
+  // TOU cost walk
+  const kwhPerMin = totalKwh / (duration || 1);
+  let eCost = 0, tCost = 0;
+  const breakdown = {};
+  let el = 0;
+  while (el < duration) {
+    const step = Math.min(1, duration - el);
+    const rate = getTouRate(pricing, el, startHour);
+    const kwh = kwhPerMin * step;
+    eCost += kwh * rate.kwh;
+    tCost += (rate.hr / 60) * step;
+    if (!breakdown[rate.label]) breakdown[rate.label] = {min:0,kwh:0,eCost:0,tCost:0,rKwh:rate.kwh,rHr:rate.hr};
+    breakdown[rate.label].min += step;
+    breakdown[rate.label].kwh += kwh;
+    breakdown[rate.label].eCost += kwh * rate.kwh;
+    breakdown[rate.label].tCost += (rate.hr / 60) * step;
+    el += step;
+  }
+
+  const preSub = eCost + tCost;
+  const savings = preSub * (subDiscountPct / 100);
+  let cost = preSub - savings;
+
+  let minFeeApplied = 0;
+  const minFee = parseFloat(pricing.minFee) || 0;
+  const minThresh = parseFloat(pricing.minThresh) || 0;
+  if (duration >= minThresh && cost < minFee && minFee > 0) {
+    minFeeApplied = minFee - cost;
+    cost = minFee;
+  }
+
+  const parkCost = calcParkingCost(parking, duration);
+  const total = cost + parkCost;
+  const avgKw = totalKwh / ((duration || 1) / 60);
+
+  return {
+    totalKwh, duration, total: Math.max(0,total),
+    eCost, tCost, parkCost, minFeeApplied, savings,
+    avgKw, socStart, socFinal, warnings,
+    breakdown: Object.entries(breakdown).map(([k,v])=>({label:k,...v})),
+    kwhPerMin,
+  };
+}
+
+// ═══════════════════════════════════════════════
+// UI – SIDEBAR
+// ═══════════════════════════════════════════════
+
+function renderVehicleSelect() {
+  const sel = document.getElementById('vehicleSelect');
+  sel.innerHTML = VEHICLES.map(v =>
+    `<option value="${v.id}">${v.year} ${v.make} ${v.model} (${v.battery}kWh)</option>`
+  ).join('');
+  sel.value = S.vehicle.id;
+  renderVehicleStats();
+}
+
+function onVehicleChange() {
+  const id = parseInt(document.getElementById('vehicleSelect').value);
+  S.vehicle = VEHICLES.find(v => v.id === id) || VEHICLES[0];
+  renderVehicleStats();
+  scheduleAutoCalc();
+}
+
+function renderVehicleStats() {
+  const v = S.vehicle;
+  const body = VEHICLE_BODY[v.id] || 'suv';
+  const svg = CAR_SVGS[body] || CAR_SVGS.suv;
+  document.getElementById('vstats').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <div style="color:var(--a);width:56px;flex-shrink:0;opacity:.9">${svg}</div>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:600;line-height:1.2">${v.year} ${v.make} ${v.model}</div>
+        <div style="font-size:10px;color:var(--m2)">${v.trim}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">
+      <span class="vstat hi">${v.maxDc}kW DC</span>
+      <span class="vstat">${v.battery}kWh</span>
+      <span class="vstat">${v.connector}</span>
+      ${v.range ? `<span class="vstat">${v.range}mi</span>` : ''}
+    </div>
+  `;
+}
+
+function renderSubSelect() {
+  const sel = document.getElementById('subSelect');
+  sel.innerHTML = SUBSCRIPTIONS.map(s =>
+    `<option value="${s.id}">${s.name}${s.discount ? ' (−'+s.discount+'%)' : ''}</option>`
+  ).join('');
+  sel.value = S.sub.id || 0;
+  renderSubDetails();
+}
+
+function onSubChange() {
+  const id = parseInt(document.getElementById('subSelect').value);
+  S.sub = SUBSCRIPTIONS.find(s => s.id === id) || SUBSCRIPTIONS[0];
+  S.subManuallySet = true;   // user chose manually, don't auto-override
+  scheduleAutoCalc();
+  renderSubDetails();
+}
+
+function renderSubDetails() {
+  const el = document.getElementById('subDetails');
+  const s = S.sub;
+  if (!el) return;
+  if (s.id === 0) { el.innerHTML = ''; return; }
+  const matchBadge = S.selectedCharger && s.network && getChargerNetwork(S.selectedCharger).toLowerCase().includes(s.network.toLowerCase())
+    ? '<span style="background:var(--ad);color:var(--a);border:1px solid rgba(0,232,122,.2);border-radius:3px;padding:1px 5px;font-size:9px;margin-left:4px">✓ matches network</span>'
+    : (s.network ? '<span style="background:rgba(255,170,0,.08);color:var(--w);border:1px solid rgba(255,170,0,.2);border-radius:3px;padding:1px 5px;font-size:9px;margin-left:4px">⚠ different network</span>' : '');
+  const feeStr = s.fee > 0 ? ` · $${s.fee}/mo` : '';
+  const discStr = s.discount > 0 ? `−${s.discount}%` : 'No discount';
+  el.innerHTML = `
+    <div style="font-size:10px;color:var(--a);font-family:var(--mo)">${discStr}${feeStr}${matchBadge}</div>
+    <div style="font-size:9px;color:var(--m2);margin-top:2px">${s.perks.slice(0,2).join(' · ')}</div>
+  `;
+}
+
+function autoSelectSubscription(network) {
+  if (S.subManuallySet) return;   // respect user's manual choice
+  if (!network || network === 'Unknown') return;
+  const match = SUBSCRIPTIONS.find(s => s.network && network.toLowerCase().includes(s.network.toLowerCase()));
+  if (match) {
+    S.sub = match;
+    const sel = document.getElementById('subSelect');
+    if (sel) sel.value = match.id;
+  }
+  renderSubDetails();
+}
+
+function renderChargerCard() {
+  const el = document.getElementById('chargerCard');
+  if (!S.selectedCharger) {
+    el.className = 'charger-sel empty';
+    el.innerHTML = '<span>📍 Click a charger on the map</span>';
+    return;
+  }
+  const c = S.selectedCharger;
+  const op = getChargerOperator(c);
+  const network = op.name;
+  const networkUrl = op.url;
+  const kw = getChargerKw(c);
+  const level = OCM_LEVEL[getChargerLevel(c)] || 'L2';
+  const connectors = getChargerConnectors(c);
+  const addr = [c.AddressInfo?.Town, c.AddressInfo?.StateOrProvince].filter(Boolean).join(', ');
+  const isFav = S.favorites.has(c.ID);
+  const src = S.pricingSource;
+  const srcMap = {
+    community: `<span class="data-badge community">📊 Community data</span>`,
+    local: `<span class="data-badge community">💾 Local save</span>`,
+    network_estimate: `<span class="data-badge estimated">📈 Network estimate</span>`,
+    brand_default: `<span class="data-badge estimated">⚠ Brand default</span>`,
+    default: `<span class="data-badge default">⚠ Default estimate</span>`,
+  };
+  const ov = S.chargerOverrides[String(c.ID)] || {};
+  const ovActive = !!ov.enabled;
+  const ovKw = ov.kw || kw;
+  // UsageType badges
+  const ut = c.UsageType || {};
+  const usageBadges = [
+    ut.IsMembershipRequired ? '<span class="ch-tag" style="background:rgba(255,170,0,.12);color:var(--w);border-color:rgba(255,170,0,.3)">🔑 Membership req.</span>' : '',
+    ut.IsPayAtLocation ? '<span class="ch-tag" style="background:rgba(75,159,255,.1);color:var(--info);border-color:rgba(75,159,255,.25)">💳 Pay on-site</span>' : '',
+    ut.IsAccessKeyRequired ? '<span class="ch-tag" style="background:rgba(255,75,110,.1);color:var(--d);border-color:rgba(255,75,110,.25)">🗝 Access key</span>' : '',
+    ut.Title && !ut.IsPayAtLocation && !ut.IsMembershipRequired ? `<span class="ch-tag">${ut.Title}</span>` : '',
+  ].filter(Boolean).join('');
+  el.className = 'charger-sel';
+  el.innerHTML = `
+    <button class="fav-star ${isFav?'on':''}" onclick="toggleFav(${c.ID})" title="Favorite">${isFav?'★':'☆'}</button>
+    <div class="ch-name">${c.AddressInfo?.Title || 'Charging Station'}</div>
+    <div style="font-size:10px;color:var(--m2);margin-bottom:3px">
+      ${networkUrl
+        ? `<a href="${networkUrl}" target="_blank" rel="noopener" style="color:var(--a);text-decoration:none;font-weight:600">${network}</a>`
+        : `<span style="color:var(--t);font-weight:600">${network}</span>`
+      }${addr?' · <span>'+addr+'</span>':''}
+    </div>
+    <div class="ch-meta">
+      <span class="ch-tag hi">${ovActive ? ovKw+'kW ⚠' : (kw>0?kw+'kW':'?kW')}</span>
+      <span class="ch-tag hi">${level}</span>
+      ${connectors.map(cn=>`<span class="ch-tag">${cn}</span>`).join('')}
+    </div>
+    ${usageBadges ? `<div class="ch-meta" style="margin-top:3px">${usageBadges}</div>` : ''}
+    ${srcMap[src] || srcMap.default}
+    ${c.UsageType?.IsMembershipRequired && S.sub.id === 0 ? '<div style="font-size:9px;color:var(--w);margin-top:3px;font-family:var(--mo)">⚠ Select a membership above — this charger requires one</div>' : ''}
+    <div style="margin-top:6px;border-top:1px solid var(--b);padding-top:6px">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+        <span style="font-size:10px;color:var(--m2);flex:1">Override max kW</span>
+        <label class="tog" onclick="event.stopPropagation()">
+          <input type="checkbox" id="ovToggle" ${ovActive?'checked':''} onchange="toggleOverride(${c.ID},this.checked)"/>
+          <div class="tog-track"></div><div class="tog-thumb"></div>
+        </label>
+      </div>
+      <div style="display:flex;gap:5px;align-items:center">
+        <input class="inp-sm" type="number" step="1" id="ovKwInput" value="${ovKw||kw||50}"
+          placeholder="${kw||50}" style="flex:1" ${!ovActive?'disabled':''} 
+          oninput="setOverrideKw(${c.ID},+this.value)"/>
+        <span style="font-size:10px;color:var(--m);font-family:var(--mo)">kW</span>
+        <button class="btn-sm" onclick="saveOverrideToFirebase(${c.ID})" style="height:22px;font-size:10px;padding:0 6px">💾</button>
+      </div>
+      ${ovActive ? '<div style="font-size:9px;color:var(--w);font-family:var(--mo);margin-top:3px">⚠ Reporting slower than rated speed</div>' : ''}
+    </div>
+  `;
+}
+
+function toggleFav(id) {
+  if (S.favorites.has(id)) S.favorites.delete(id);
+  else S.favorites.add(id);
+  localStorage.setItem('ev_favs', JSON.stringify([...S.favorites]));
+  renderChargerCard();
+  if (S.markerMap[id]) S.markerMap[id].setIcon(makeMarkerIcon(S.selectedCharger, true));
+}
+
+function toggleOverride(ocmId, enabled) {
+  const id = String(ocmId);
+  if (!S.chargerOverrides[id]) S.chargerOverrides[id] = {};
+  S.chargerOverrides[id].enabled = enabled;
+  const inp = document.getElementById('ovKwInput');
+  if (inp) inp.disabled = !enabled;
+  localStorage.setItem('ev_overrides', JSON.stringify(S.chargerOverrides));
+  renderChargerCard();
+  markPricingModified();
+}
+function setOverrideKw(ocmId, kw) {
+  const id = String(ocmId);
+  if (!S.chargerOverrides[id]) S.chargerOverrides[id] = {};
+  S.chargerOverrides[id].kw = kw;
+  localStorage.setItem('ev_overrides', JSON.stringify(S.chargerOverrides));
+}
+async function saveOverrideToFirebase(ocmId) {
+  const id = String(ocmId);
+  const ov = S.chargerOverrides[id];
+  if (!ov) return;
+  const data = {
+    ocm_id: ocmId,
+    network: getChargerNetwork(S.selectedCharger),
+    reported_max_kw: ov.kw,
+    override_enabled: ov.enabled,
+    rated_max_kw: getChargerKw(S.selectedCharger),
+    updated: Date.now(),
+    by: 'community',
+  };
+  // Save locally
+  const local = JSON.parse(localStorage.getItem('ev_local_pricing') || '{}');
+  if (!local[id]) local[id] = {};
+  local[id].override = data;
+  localStorage.setItem('ev_local_pricing', JSON.stringify(local));
+  S.fbCache[id] = {...(S.fbCache[id]||{}), override: data};
+  if (S.fbDb) {
+    try {
+      await S.fbDb.collection('chargers').doc(id).set({override: data}, {merge:true});
+      showToast('⚡ Speed report saved to community');
+    } catch(e) { showToast('Saved locally (Firebase error)'); }
+  } else {
+    showToast('Speed report saved locally');
+  }
+}
+
+function getEffectiveChargerKw(c) {
+  if (!c) return 50;
+  const id = String(c.ID);
+  const ov = S.chargerOverrides[id];
+  if (ov && ov.enabled && ov.kw > 0) return ov.kw;
+  return getChargerKw(c);
+}
+
+function setMode(m) {
+  S.mode = m;
+  document.getElementById('modeTime').classList.toggle('active', m==='time');
+  document.getElementById('modePct').classList.toggle('active', m==='percent');
+  renderInputSection();
+}
+
+let _autoCalcTimer = null;
+function scheduleAutoCalc() {
+  clearTimeout(_autoCalcTimer);
+  _autoCalcTimer = setTimeout(calculate, 350);
+}
+
+function getDurationInMinutes() {
+  const raw = parseFloat(document.getElementById('durVal')?.value) || S.durationMin;
+  return S.durationUnit === 'hr' ? raw * 60 : raw;
+}
+
+function getStartHour() {
+  const v = S.startTime;
+  if (!v || v === 'now') return new Date().getHours() + new Date().getMinutes() / 60;
+  const [h, m] = v.split(':').map(Number);
+  return h + (m || 0) / 60;
+}
+
+function onDurationUnitChange(unit) {
+  const inp = document.getElementById('durVal');
+  if (!inp) return;
+  const curMin = S.durationUnit === 'hr' ? S.durationMin * 60 : S.durationMin;
+  S.durationUnit = unit;
+  // Convert displayed value
+  if (unit === 'hr') {
+    const hrs = Math.round((curMin / 60) * 10) / 10;
+    inp.value = hrs || 0.5;
+    inp.step = '0.25'; inp.min = '0.25'; inp.max = '24';
+    S.durationMin = (hrs || 0.5) * 60;
+  } else {
+    inp.value = curMin || 30;
+    inp.step = '1'; inp.min = '1'; inp.max = '1440';
+    S.durationMin = curMin || 30;
+  }
+  document.getElementById('unitMin').classList.toggle('active', unit === 'min');
+  document.getElementById('unitHr').classList.toggle('active', unit === 'hr');
+  scheduleAutoCalc();
+}
+
+function onStartTimeChange(val) {
+  S.startTime = val;
+  const custom = document.getElementById('customTimeWrap');
+  if (custom) custom.style.display = val === 'custom' ? '' : 'none';
+  if (val !== 'custom') scheduleAutoCalc();
+}
+
+function onCustomTimeChange(val) {
+  S.startTime = val;
+  scheduleAutoCalc();
+}
+
+function renderInputSection() {
+  const el = document.getElementById('inputSec');
+  const isHr = S.durationUnit === 'hr';
+  const durVal = isHr ? Math.round((S.durationMin / 60) * 4) / 4 : S.durationMin;
+  const isCustomTime = S.startTime !== 'now' && S.startTime !== '';
+  const customTimeVal = isCustomTime ? S.startTime : '';
+
+  if (S.mode === 'time') {
+    el.innerHTML = `
+      <div class="sb-label">Duration & Starting Charge</div>
+      <div style="display:flex;gap:4px;margin-bottom:5px">
+        <button class="mode-btn ${!isHr?'active':''}" id="unitMin" onclick="onDurationUnitChange('min')" style="height:22px;font-size:10px;flex:1">Min</button>
+        <button class="mode-btn ${isHr?'active':''}" id="unitHr" onclick="onDurationUnitChange('hr')" style="height:22px;font-size:10px;flex:1">Hours</button>
+      </div>
+      <div class="inp-row">
+        <div class="inp-group">
+          <span class="inp-sub">${isHr ? 'Hours' : 'Minutes'}</span>
+          <input class="inp-plain" type="number" id="durVal"
+            min="${isHr?'0.25':'1'}" max="${isHr?'24':'1440'}"
+            step="${isHr?'0.25':'1'}" value="${durVal}"
+            oninput="S.durationMin=${isHr?'+this.value*60':'+this.value'};scheduleAutoCalc()"/>
+        </div>
+        <div class="inp-group">
+          <span class="inp-sub">Start SoC %</span>
+          <input class="inp-plain" id="socSt" type="number" min="0" max="99" value="${S.socStart}" oninput="S.socStart=+this.value;scheduleAutoCalc()"/>
+        </div>
+      </div>
+      <div style="margin-top:6px">
+        <div class="inp-sub" style="margin-bottom:3px">Start charging at</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px">
+          <button class="mode-btn ${!isCustomTime?'active':''}" id="startNowBtn" onclick="onStartTimeChange('now')" style="height:22px;font-size:10px">⏱ Now</button>
+          <button class="mode-btn ${isCustomTime?'active':''}" id="startCustomBtn" onclick="onStartTimeChange('custom')" style="height:22px;font-size:10px">🕐 Set Time</button>
+        </div>
+        <div id="customTimeWrap" style="display:${isCustomTime?'':'none'}">
+          <input class="inp-plain" type="time" id="customTimeInp" value="${customTimeVal||new Date().toTimeString().slice(0,5)}" oninput="onCustomTimeChange(this.value)" style="width:100%"/>
+          <div style="font-size:9px;color:var(--m);font-family:var(--mo);margin-top:2px">Used for TOU pricing calculation</div>
+        </div>
+      </div>
+    `;
+  } else {
+    el.innerHTML = `
+      <div class="sb-label">Charge from → to</div>
+      <div class="soc-row">
+        <input class="soc-num" id="socSt" type="number" min="0" max="99" value="${S.socStart}" oninput="S.socStart=+this.value;scheduleAutoCalc()"/>
+        <div class="soc-arrow">→</div>
+        <input class="soc-num" id="socEnd" type="number" min="1" max="100" value="${S.socEnd}" oninput="S.socEnd=+this.value;scheduleAutoCalc()"/>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--m);font-family:var(--mo);margin-top:2px;margin-bottom:6px">
+        <span>from %</span><span>to %</span>
+      </div>
+      <div>
+        <div class="inp-sub" style="margin-bottom:3px">Start charging at</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px">
+          <button class="mode-btn ${!isCustomTime?'active':''}" onclick="onStartTimeChange('now')" style="height:22px;font-size:10px">⏱ Now</button>
+          <button class="mode-btn ${isCustomTime?'active':''}" onclick="onStartTimeChange('custom')" style="height:22px;font-size:10px">🕐 Set Time</button>
+        </div>
+        <div id="customTimeWrap" style="display:${isCustomTime?'':'none'}">
+          <input class="inp-plain" type="time" id="customTimeInp" value="${customTimeVal||new Date().toTimeString().slice(0,5)}" oninput="onCustomTimeChange(this.value)" style="width:100%"/>
+          <div style="font-size:9px;color:var(--m);font-family:var(--mo);margin-top:2px">Used for TOU pricing calculation</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// ─── TOU / Pricing Accordion ─────────────────
+
+function renderPricingAccordion() {
+  renderTouTable();
+  document.getElementById('pDefaultKwh').value = S.pricing.kwh || 0;
+  document.getElementById('pDefaultHr').value = S.pricing.hr || 0;
+  document.getElementById('pMinFee').value = S.pricing.minFee || 0;
+  document.getElementById('pMinThresh').value = S.pricing.minThresh || 0;
+  updatePricingSummary();
+}
+
+function renderTouTable() {
+  const el = document.getElementById('touTable');
+  const tou = S.pricing.tou || [];
+  el.innerHTML = `
+    <div class="tou-grid" style="margin-bottom:4px">
+      <div class="tou-head">Label</div>
+      <div class="tou-head">Start</div>
+      <div class="tou-head">End</div>
+      <div class="tou-head">$/kWh</div>
+      <div class="tou-head">$/hr</div>
+      <div class="tou-head"></div>
+    </div>
+    ${tou.map((iv,i) => `
+      <div class="tou-grid">
+        <input class="inp-sm" value="${iv.label||''}" onchange="updateTou(${i},'label',this.value)"/>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <div style="font-size:9px;font-family:var(--mo);color:var(--a);text-align:center;line-height:1.2">${fmt12h(iv.start||'09:00')}</div>
+          <input class="inp-sm" type="time" value="${iv.start||'09:00'}" onchange="updateTou(${i},'start',this.value);renderTouTable()" style="width:100%"/>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <div style="font-size:9px;font-family:var(--mo);color:var(--d);text-align:center;line-height:1.2">${fmt12h(iv.end||'21:00')}</div>
+          <input class="inp-sm" type="time" value="${iv.end||'21:00'}" onchange="updateTou(${i},'end',this.value);renderTouTable()" style="width:100%"/>
+        </div>
+        <input class="inp-sm" type="number" step="0.01" value="${iv.kwh??iv.cost_per_kwh??0}" onchange="updateTou(${i},'kwh',+this.value)"/>
+        <input class="inp-sm" type="number" step="0.01" value="${iv.hr??iv.cost_per_hour??0}" onchange="updateTou(${i},'hr',+this.value)"/>
+        <button class="del-btn" onclick="removeTou(${i})">×</button>
+      </div>
+    `).join('')}
+    <button class="add-row-btn" onclick="addTou()">+ Add Interval</button>
+  `;
+}
+
+function fmt12h(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2,'0')}<span style="font-size:8px;color:var(--m);margin-left:1px">${ampm}</span>`;
+}
+
+function addTou() {
+  if (!S.pricing.tou) S.pricing.tou = [];
+  S.pricing.tou.push({label:'Off-Peak',start:'21:00',end:'09:00',kwh:0.29,hr:0});
+  renderTouTable(); markPricingModified();
+}
+function removeTou(i) {
+  S.pricing.tou.splice(i,1); renderTouTable(); markPricingModified();
+}
+function updateTou(i, field, val) {
+  S.pricing.tou[i][field] = val; markPricingModified();
+}
+function syncPricing() {
+  S.pricing.kwh = parseFloat(document.getElementById('pDefaultKwh').value) || 0;
+  S.pricing.hr = parseFloat(document.getElementById('pDefaultHr').value) || 0;
+  S.pricing.minFee = parseFloat(document.getElementById('pMinFee').value) || 0;
+  S.pricing.minThresh = parseFloat(document.getElementById('pMinThresh').value) || 0;
+  updatePricingSummary(); markPricingModified(); scheduleAutoCalc();
+}
+function markPricingModified() {
+  S.pricingModified = true;
+  if (S.selectedCharger) document.getElementById('savePricingBtn').style.display = '';
+}
+function updatePricingSummary() {
+  const s = S.pricing;
+  let txt = '';
+  if (s.kwh > 0) txt += `$${s.kwh}/kWh`;
+  if (s.hr > 0) txt += (txt?' · ':'') + `$${s.hr}/hr`;
+  if ((s.tou||[]).length) txt += ` (${s.tou.length} TOU)`;
+  document.getElementById('pricingSummary').textContent = txt;
+}
+
+// ─── Parking Accordion ───────────────────────
+
+function renderParkingAccordion() {
+  document.getElementById('parkEnabled').checked = S.parking.enabled;
+  document.getElementById('parkFields').style.display = S.parking.enabled ? '' : 'none';
+  setParkType(S.parking.type || 'timed');
+  document.getElementById('pFirstHr').value = S.parking.firstHr || 3;
+  document.getElementById('pSubseqHr').value = S.parking.subseqHr || 2;
+  document.getElementById('pFreeMin').value = S.parking.freeMin || 0;
+  document.getElementById('pFlatFee').value = S.parking.flat || 5;
+  updateParkingSummary();
+}
+function onParkToggle() {
+  S.parking.enabled = document.getElementById('parkEnabled').checked;
+  document.getElementById('parkFields').style.display = S.parking.enabled ? '' : 'none';
+  updateParkingSummary(); markPricingModified();
+}
+function setParkType(t) {
+  S.parking.type = t;
+  document.getElementById('ptTimedBtn').classList.toggle('active', t==='timed');
+  document.getElementById('ptFlatBtn').classList.toggle('active', t==='flat');
+  document.getElementById('parkTimedFields').style.display = t==='timed' ? '' : 'none';
+  document.getElementById('parkFlatFields').style.display = t==='flat' ? '' : 'none';
+}
+function syncParking() {
+  S.parking.firstHr = parseFloat(document.getElementById('pFirstHr').value) || 0;
+  S.parking.subseqHr = parseFloat(document.getElementById('pSubseqHr').value) || 0;
+  S.parking.freeMin = parseInt(document.getElementById('pFreeMin').value) || 0;
+  S.parking.flat = parseFloat(document.getElementById('pFlatFee').value) || 0;
+  updateParkingSummary(); markPricingModified();
+}
+function updateParkingSummary() {
+  const p = S.parking;
+  if (!p.enabled) { document.getElementById('parkingSummary').textContent = 'off'; return; }
+  let txt = p.type === 'flat' ? `$${p.flat} flat` :
+    `$${p.firstHr}/hr${p.subseqHr!==p.firstHr?` then $${p.subseqHr}/hr`:''}`;
+  if (p.freeMin > 0 && p.type==='timed') txt += ` (${p.freeMin}min free)`;
+  document.getElementById('parkingSummary').textContent = txt;
+}
+
+function toggleAcc(name) {
+  const body = document.getElementById(name+'Body');
+  const chev = document.getElementById(name+'Chev');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  chev.classList.toggle('open', !open);
+}
+
+// ─── Calculate ───────────────────────────────
+
+function calculate() {
+  if (!S.vehicle) return;
+  try {
+    const chargerKw = getEffectiveChargerKw(S.selectedCharger);
+    const result = runCalc(
+      S.vehicle, chargerKw, S.pricing, S.parking,
+      S.mode,
+      S.mode === 'time' ? getDurationInMinutes() : 0,
+      parseFloat(document.getElementById('socSt')?.value) ?? S.socStart,
+      parseFloat(document.getElementById('socEnd')?.value) ?? S.socEnd,
+      S.sub.discount || 0,
+      getStartHour(),
+      S.sub.sessionFee || 0
+    );
+    S.result = result;
+    renderResult(result);
+    document.getElementById('resultPlaceholder').style.display = 'none';
+  } catch(e) {
+    console.error('Calc error:', e);
+  }
+}
+
+function renderResult(r) {
+  const el = document.getElementById('resultPanel');
+  el.style.display = '';
+
+  const fmt2 = n => '$' + (Math.abs(n) < 0.005 ? '0.00' : n.toFixed(2));
+  const fmtKwh = n => n.toFixed(2) + ' kWh';
+  const fmtMin = n => n >= 60 ? `${Math.floor(n/60)}h ${Math.round(n%60)}m` : `${Math.round(n)}m`;
+
+  const touRows = r.breakdown.map(b => {
+    const lower = b.label.toLowerCase();
+    let bc = 'badge-default';
+    if (lower.includes('peak') && !lower.includes('off') && !lower.includes('super')) bc = 'badge-peak';
+    else if (lower.includes('super')) bc = 'badge-super';
+    else if (lower.includes('off')) bc = 'badge-offpeak';
+    return `<div class="tou-mini-row">
+      <span class="tou-badge ${bc}">${b.label}</span>
+      <span style="font-size:10px;color:var(--m2);font-family:var(--mo)">${Math.round(b.min)}m</span>
+      <span style="font-size:10px;color:var(--m2);font-family:var(--mo)">${b.kwh.toFixed(2)}kWh</span>
+      <span style="font-size:10px;color:var(--a);font-family:var(--mo)">${fmt2(b.eCost+b.tCost)}</span>
+    </div>`;
+  }).join('');
+
+  const startLabel = S.startTime === 'now' || !S.startTime ? 'now' : ('@ ' + S.startTime);
+  const modeLabel = S.mode === 'time'
+    ? `${fmtMin(r.duration)} → ${Math.round(r.socFinal*100)}% SoC · ${startLabel}`
+    : `${Math.round(r.socStart*100)}% → ${Math.round(r.socFinal*100)}% in ${fmtMin(r.duration)} · ${startLabel}`;
+
+  el.innerHTML = `
+    <div style="font-size:9px;font-family:var(--mo);color:var(--m);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Result · ${modeLabel}</div>
+    <div class="result-total">
+      <div class="result-big">${fmt2(r.total)}</div>
+      <div class="result-label">total</div>
+    </div>
+    <div class="result-secondary">
+      <div class="res-pill">
+        <span class="res-pill-val">${fmtKwh(r.totalKwh)}</span>
+        <span class="res-pill-label">Energy</span>
+      </div>
+      <div class="res-pill">
+        <span class="res-pill-val">${fmtMin(r.duration)}</span>
+        <span class="res-pill-label">Time</span>
+      </div>
+      ${r.milesAdded != null ? `<div class="res-pill">
+        <span class="res-pill-val">+${r.milesAdded}mi</span>
+        <span class="res-pill-label">Range Added</span>
+      </div>` : `<div class="res-pill">
+        <span class="res-pill-val">${r.avgKw.toFixed(0)}kW</span>
+        <span class="res-pill-label">Avg Rate</span>
+      </div>`}
+    </div>
+    <div class="result-grid">
+      <div class="result-row"><span class="result-row-label">Energy</span><span class="result-row-val">${fmt2(r.eCost)}</span></div>
+      <div class="result-row"><span class="result-row-label">Time fee</span><span class="result-row-val">${fmt2(r.tCost)}</span></div>
+      ${r.sessionFee > 0 ? `<div class="result-row"><span class="result-row-label">Session fee</span><span class="result-row-val warn">${fmt2(r.sessionFee)}</span></div>` : ''}
+      ${r.parkCost > 0 ? `<div class="result-row"><span class="result-row-label">Parking</span><span class="result-row-val warn">${fmt2(r.parkCost)}</span></div>` : ''}
+      ${r.minFeeApplied > 0 ? `<div class="result-row"><span class="result-row-label">Min fee +</span><span class="result-row-val warn">${fmt2(r.minFeeApplied)}</span></div>` : ''}
+      ${r.savings > 0 ? `<div class="result-row"><span class="result-row-label">Sub saves</span><span class="result-row-val green">-${fmt2(r.savings)}</span></div>` : ''}
+      <div class="result-row"><span class="result-row-label">Effective</span><span class="result-row-val">${r.totalKwh>0?'$'+(r.total/r.totalKwh).toFixed(3)+'/kWh':'—'}</span></div>
+    </div>
+    ${r.breakdown.length > 1 ? `<div class="tou-mini" style="margin-top:5px">${touRows}</div>` : ''}
+    ${r.warnings.map(w=>`<div class="warn-pill">⚠ ${w}</div>`).join('')}
+  `;
+
+}
+
+// ═══════════════════════════════════════════════
+// LIVE SESSION TIMER
+// ═══════════════════════════════════════════════
+
+function startLiveSession() {
+  if (!S.vehicle) return showToast('Select a vehicle first');
+  // Run a base calculation first
+  calculate();
+  setTimeout(() => {
+    const chargerKw = getEffectiveChargerKw(S.selectedCharger);
+    const socStart = (parseFloat(document.getElementById('socSt')?.value) ?? S.socStart) / 100;
+    S.liveSession = {
+      startTime: Date.now(),
+      sessionStartHour: getStartHour(),
+      chargerKw,
+      socStart,
+      intervalId: setInterval(updateLiveSession, 1000),
+    };
+    document.getElementById('livePanel').style.display = '';
+    document.getElementById('liveStartBtn').style.display = 'none';
+    document.getElementById('liveStopBtn').style.display = '';
+    updateLiveSession();
+  }, 300);
+}
+
+function stopLiveSession() {
+  if (S.liveSession) {
+    clearInterval(S.liveSession.intervalId);
+    S.liveSession = null;
+  }
+  document.getElementById('livePanel').style.display = 'none';
+  document.getElementById('liveStartBtn').style.display = '';
+  document.getElementById('liveStopBtn').style.display = 'none';
+}
+
+function updateLiveSession() {
+  if (!S.liveSession) return;
+  const elapsed = (Date.now() - S.liveSession.startTime) / 1000 / 60; // minutes
+  const mins = Math.floor(elapsed);
+  const secs = Math.floor((elapsed - mins) * 60);
+  document.getElementById('liveTime').textContent = mins + ':' + String(secs).padStart(2,'0');
+
+  // For live session, start hour drifts in real-time from the actual start
+  const liveStartHour = S.liveSession.sessionStartHour;
+  const r = runCalc(
+    S.vehicle, S.liveSession.chargerKw, S.pricing, S.parking,
+    'time', elapsed,
+    S.liveSession.socStart * 100, S.socEnd,
+    S.sub.discount || 0, liveStartHour
+  );
+  document.getElementById('liveCost').textContent = '$' + r.total.toFixed(2);
+  document.getElementById('liveKwh').textContent = r.totalKwh.toFixed(3) + ' kWh';
+
+  // Stop if battery full
+  if (r.socFinal >= 0.999) stopLiveSession();
+}
+
+// ═══════════════════════════════════════════════
+// MISC UI
+// ═══════════════════════════════════════════════
+
+let _mobileShowMap = true;
+function toggleMobileView() {
+  _mobileShowMap = !_mobileShowMap;
+  const map = document.getElementById('map');
+  const sidebar = document.querySelector('.sidebar');
+  const btn = document.getElementById('mobileToggleBtn');
+  if (_mobileShowMap) {
+    map.style.display = '';
+    if (sidebar) sidebar.style.height = '58vh';
+    btn.textContent = '📋';
+    btn.title = 'Show details';
+  } else {
+    map.style.display = 'none';
+    if (sidebar) sidebar.style.height = '100%';
+    btn.textContent = '🗺';
+    btn.title = 'Show map';
+  }
+  if (S.map) setTimeout(() => S.map.invalidateSize(), 100);
+}
+
+function checkMobileLayout() {
+  const btn = document.getElementById('mobileToggleBtn');
+  if (window.innerWidth <= 768) {
+    btn.style.display = '';
+  } else {
+    btn.style.display = 'none';
+    const map = document.getElementById('map');
+    if (map) map.style.display = '';
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.style.height = '';
+  }
+}
+window.addEventListener('resize', checkMobileLayout);
+
+function setStatus(id, state, label) {
+  const dot = document.getElementById(id+'Dot');
+  const lbl = document.getElementById(id+'Label');
+  if (!dot) return;
+  dot.className = 'status-dot' + (state==='on'?' on':state==='warn'?' warn':'');
+  if (lbl) lbl.textContent = label;
+}
+
+function showLoader(v) {
+  document.getElementById('mapLoader').style.display = v ? 'flex' : 'none';
+}
+
+let _msgEl = null;
+function showMapMsg(msg) {
+  let el = document.getElementById('mapMsg');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'mapMsg'; el.className = 'nochargers';
+    document.getElementById('map').appendChild(el);
+  }
+  el.textContent = msg; el.style.display = '';
+}
+function hideMapMsg() {
+  const el = document.getElementById('mapMsg');
+  if (el) el.style.display = 'none';
+}
+
+let _toastTimer = null;
+function showToast(msg) {
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:var(--surf);border:1px solid var(--b);border-radius:7px;padding:8px 14px;font-size:12px;z-index:9999;transition:opacity .3s;box-shadow:0 4px 20px rgba(0,0,0,.4)';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg; el.style.opacity = '1';
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 3000);
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+
+function init() {
+  // Status
+  setStatus('ocm', 'off', 'OCM');
+  setStatus('fb', 'off', 'Firebase');
+
+  // Firebase
+  initFirebase();
+
+  // Vehicle & sub selects
+  renderVehicleSelect();
+  renderSubSelect();
+  renderInputSection();
+  renderParkingAccordion();
+
+  // Default pricing
+  S.pricing = defaultPricing();
+  renderPricingAccordion();
+  updatePricingSummary();
+
+  // Mobile layout check
+  checkMobileLayout();
+  // Start auto-calc immediately
+  scheduleAutoCalc();
+
+  // Map
+  const defaultLat = 40.7128, defaultLng = -74.0060;
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => initMap(pos.coords.latitude, pos.coords.longitude),
+      () => initMap(defaultLat, defaultLng),
+      {timeout:3000}
+    );
+  } else {
+    initMap(defaultLat, defaultLng);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Wait for config.js to finish loading (or fail) before init()
+  // so S.ocmKey and Firebase config are in localStorage before we read them
+  Promise.race([
+    window._configReady,
+    new Promise(function(r) { setTimeout(r, 2500, 'timeout'); }) // 2.5s max wait
+  ]).then(function(result) {
+    console.log('[EVCharge] Config gate resolved:', result, '— starting init()');
+    init();
+  });
+});
+</script>
+</body>
+</html>

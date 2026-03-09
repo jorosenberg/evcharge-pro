@@ -1,0 +1,60 @@
+name: Deploy EVCharge Pro
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Required for the modern GitHub Pages deploy API
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Prevent two deploys running at once
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Write config.js from secrets ─────────────────────────────────
+      # printf avoids ALL heredoc quoting issues.
+      # Secrets go into env vars first (GitHub Actions redacts them in logs),
+      # then the shell writes them into the file — never appears in log output.
+      - name: Generate config.js
+        env:
+          OCM_KEY: ${{ secrets.OCM_API_KEY }}
+          FB_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
+        run: |
+          printf 'window.EVCHARGE_CONFIG={ocmKey:"%s",firebase:%s};\n' \
+            "$OCM_KEY" "$FB_CONFIG" > config.js
+          echo "OCM key length:      ${#OCM_KEY}"
+          echo "Firebase cfg length: ${#FB_CONFIG}"
+          # Sanity check — make sure placeholder wasn't written
+          if grep -q 'OCM_API_KEY' config.js; then
+            echo "ERROR: secret was not expanded!" && exit 1
+          fi
+
+      # ── Upload the site as a Pages artifact ──────────────────────────
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'   # upload entire repo root incl. config.js we just wrote
+
+      # ── Deploy ───────────────────────────────────────────────────────
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
