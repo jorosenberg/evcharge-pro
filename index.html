@@ -510,9 +510,9 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
   /* Show mobile filter strip */
   .mob-filter-strip { display: flex !important; }
 
-  /* Sidebar bottom sheet */
+  /* Sidebar bottom sheet — taller so panels have room to scroll */
   .sidebar {
-    height: 58dvh;
+    height: 68dvh;
     border-top: 2px solid var(--a);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -8px 32px rgba(0,0,0,.5);
@@ -520,17 +520,29 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
     z-index: 200;
     /* filter strip + tab bar + panels */
     grid-template-rows: auto auto 1fr;
+    min-height: 0; /* allow grid children to shrink/scroll */
+  }
+
+  /* Map shrinks to give sidebar more room */
+  #map {
+    height: 32dvh;
+    min-height: 160px;
   }
 
   /* On mobile panels stack; JS shows/hides via .sb-panel-hidden */
   .sb-panels {
     grid-template-columns: 1fr !important;
     position: relative;
+    min-height: 0;
+    overflow: hidden;
   }
   .sb-panel {
     -webkit-overflow-scrolling: touch;
     overflow-y: scroll;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 56px);
+    /* generous bottom padding: safe-area + nav chrome + extra breathing room */
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+    height: 100%;
+    min-height: 0;
   }
   /* Hide inactive panel on mobile */
   .sb-panel.sb-panel-hidden { display: none !important; }
@@ -550,7 +562,7 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
 
   /* Result panel */
   .result-panel { padding-bottom: 20px !important; }
-  .sb-sec:last-child { border-bottom: none; padding-bottom: 24px; }
+  .sb-sec:last-child { border-bottom: none; padding-bottom: 32px; }
 
   /* Wider touch targets */
   .mode-btn, .park-type-btn { height: 34px !important; font-size: 12px !important; }
@@ -568,6 +580,26 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
   /* Result panel bigger text */
   .result-big { font-size: 32px !important; }
   .res-pill-val { font-size: 13px !important; }
+}
+
+/* ── Tablet (769px – 1024px): sidebar taller, panels scroll properly ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  :root { --sw: 340px; }
+
+  .main {
+    grid-template-columns: var(--sw) 1fr;
+  }
+
+  .sb-panels {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Each panel gets full sidebar height and scrolls independently */
+  .sb-panel {
+    overflow-y: auto;
+    height: 100%;
+    padding-bottom: 80px;
+  }
 }
 
 @media (max-width: 380px) {
