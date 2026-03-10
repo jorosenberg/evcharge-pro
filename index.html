@@ -69,6 +69,7 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
 .status-dot.on{background:var(--a);animation:pulse 2s infinite}
 .status-dot.warn{background:var(--w)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes userPulse{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.5);opacity:0}}
 .icon-btn{
   width:26px;height:26px;border:1px solid var(--b);border-radius:5px;
   background:var(--card);color:var(--m2);cursor:pointer;
@@ -485,6 +486,9 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
     order: -1;
   }
 
+  /* Show mobile filter strip */
+  .mob-filter-strip { display: flex !important; }
+
   /* Sidebar bottom sheet */
   .sidebar {
     height: 58dvh;
@@ -493,8 +497,8 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
     box-shadow: 0 -8px 32px rgba(0,0,0,.5);
     position: relative;
     z-index: 200;
-    /* On mobile: single column, tabs control which panel shows */
-    grid-template-rows: auto 1fr;
+    /* filter strip + tab bar + panels */
+    grid-template-rows: auto auto 1fr;
   }
 
   /* On mobile panels stack; JS shows/hides via .sb-panel-hidden */
@@ -576,15 +580,43 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
 .price-marker-pill {
   background: #1a1d2e;
   border: 1.5px solid rgba(255,255,255,.18);
-  border-radius: 6px;
-  padding: 2px 5px;
+  border-radius: 7px;
+  padding: 3px 6px 3px 4px;
   font-family: var(--mo);
   font-weight: 700;
   line-height: 1.15;
-  text-align: center;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0,0,0,.55);
+  box-shadow: 0 2px 10px rgba(0,0,0,.6);
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+/* Speed badge — left column */
+.pm-speed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid;
+  border-radius: 4px;
+  padding: 2px 4px;
+  min-width: 26px;
+  text-align: center;
+  flex-shrink: 0;
+}
+/* Info column — right, stacked */
+.pm-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+.pm-rate-line {
+  font-size: 8px;
+  color: #6b7280;
+  line-height: 1;
+  margin-top: 1px;
 }
 .price-marker-pill.community {
   border-color: rgba(0,232,122,.55);
@@ -650,6 +682,45 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
 .price-marker-caret.community { border-top-color: rgba(0,232,122,.4); }
 .price-marker-caret.estimated { border-top-color: rgba(255,170,0,.3); }
 .price-marker-caret.selected  { border-top-color: rgba(255,170,0,.7); }
+
+/* ── Mobile filter strip (inside sidebar, desktop: hidden) ── */
+.mob-filter-strip {
+  display: none;  /* hidden on desktop */
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--b);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.mob-filter-strip::-webkit-scrollbar { display: none; }
+.mfs-sel {
+  height: 28px;
+  padding: 0 6px;
+  background: var(--card);
+  border: 1px solid var(--b);
+  border-radius: 5px;
+  color: var(--t);
+  font-size: 11px;
+  flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 80px;
+}
+.mfs-btn {
+  height: 28px;
+  width: 28px;
+  background: var(--card);
+  border: 1px solid var(--b);
+  border-radius: 5px;
+  color: var(--m2);
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
 </style>
 </head>
 <body>
@@ -861,14 +932,42 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
 
+      <!-- Mobile filter strip (hidden on desktop, shown on mobile) -->
+      <div id="mobileFilterStrip" class="mob-filter-strip">
+        <select id="mfsNetwork" onchange="syncMobileFilter('network',this.value)" class="mfs-sel">
+          <option value="">All Networks</option>
+        </select>
+        <select id="mfsLevel" onchange="syncMobileFilter('level',this.value)" class="mfs-sel">
+          <option value="">All Levels</option>
+          <option value="1">L1</option>
+          <option value="2">L2</option>
+          <option value="3">DC</option>
+        </select>
+        <select id="mfsConnector" onchange="syncMobileFilter('connector',this.value)" class="mfs-sel">
+          <option value="">All Connectors</option>
+          <option value="J1772">J1772</option>
+          <option value="CCS">CCS</option>
+          <option value="CHAdeMO">CHAdeMO</option>
+          <option value="NACS">NACS</option>
+        </select>
+        <button class="mfs-btn" onclick="toggleCheapestPanel()" title="Find cheapest">🏆</button>
+        <button class="mfs-btn" onclick="locateMe()" title="My location">◎</button>
+      </div>
+
       <!-- Tab bar -->
-      <div class="sb-tabs">
+      <div class="sb-tabs" style="grid-template-columns:1fr 1fr 1fr auto">
         <button class="sb-tab active" id="tabSession" onclick="switchTab('session')">
           ⚡ Session
         </button>
         <button class="sb-tab" id="tabCharger" onclick="switchTab('charger')">
           📍 Charger
           <span class="sb-tab-dot" id="chargerTabDot"></span>
+        </button>
+        <button class="sb-tab" id="tabHome" onclick="switchTab('home')">
+          🏠 Home
+        </button>
+        <button class="sb-tab" id="tabRefresh" onclick="manualRefresh()" title="Refresh charger pricing" style="width:36px;flex-shrink:0;border-left:1px solid var(--b);font-size:13px">
+          ↻
         </button>
       </div>
 
@@ -1073,6 +1172,74 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
           </div>
 
         </div><!-- /panelCharger -->
+
+        <!-- ═══ HOME CHARGING PANEL ═══ -->
+        <div class="sb-panel sb-panel-hidden" id="panelHome">
+
+          <div class="sb-sec">
+            <div class="sb-label">Home Charging Setup</div>
+            <div style="font-size:10px;color:var(--m2);line-height:1.5;margin-bottom:8px">
+              Configure your home electricity rate to compare home vs public charging costs.
+            </div>
+            <!-- Charger level -->
+            <div class="inp-group" style="margin-bottom:8px">
+              <span class="inp-sub">Home charger type</span>
+              <select class="inp" id="homeLevel" onchange="syncHomeCharging()">
+                <option value="l1">Level 1 — 120V / 1.4kW</option>
+                <option value="l2" selected>Level 2 — 240V / 7.2kW</option>
+                <option value="l2fast">Level 2 Fast — 240V / 11.5kW</option>
+                <option value="l2max">Level 2 Max — 240V / 19.2kW</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- TOU rate schedule -->
+          <div class="acc-header" onclick="toggleAcc('homeRate')">
+            <div class="acc-title">⚡ Home Rate Schedule</div>
+            <div class="acc-right">
+              <span class="acc-summary" id="homeRateSummary"></span>
+              <span class="acc-chevron" id="homeRateChev">▶</span>
+            </div>
+          </div>
+          <div id="homeRateBody" style="display:none">
+            <div class="acc-body">
+              <div style="font-size:10px;color:var(--m2);margin-bottom:8px">
+                Add your utility rate periods. For a flat rate, just set Default $/kWh below.
+              </div>
+              <div id="homeTouTable"></div>
+              <div class="flat-grid" style="margin-top:6px">
+                <div class="inp-group">
+                  <span class="inp-sub">Default $/kWh</span>
+                  <input class="inp-sm" type="number" step="0.01" id="homeDefaultKwh" value="0.14" oninput="syncHomeCharging()"/>
+                </div>
+                <div class="inp-group">
+                  <span class="inp-sub">Monthly fixed ($)</span>
+                  <input class="inp-sm" type="number" step="0.50" id="homeMonthlyFixed" value="0" oninput="syncHomeCharging()"/>
+                </div>
+              </div>
+              <button class="add-row-btn" onclick="addHomeTou()" style="margin-top:6px">+ Add TOU interval</button>
+            </div>
+          </div>
+
+          <!-- Home calc result -->
+          <div class="sb-sec">
+            <div class="sb-label">
+              Home vs Public Cost
+              <span class="lright" id="homeCalcStatus"></span>
+            </div>
+            <div id="homeResult" style="background:var(--card);border:1px solid var(--b);border-radius:6px;padding:10px">
+              <div style="font-size:10px;color:var(--m);text-align:center">Select vehicle &amp; set session params first</div>
+            </div>
+          </div>
+
+          <!-- Save home settings -->
+          <div class="sb-sec">
+            <button class="save-btn" style="width:100%" onclick="saveHomeSettings()">
+              💾 Save home settings
+            </button>
+          </div>
+
+        </div><!-- /panelHome -->
 
       </div><!-- /sb-panels -->
 
@@ -1381,6 +1548,12 @@ const S = {
   networkSet: new Set(),
   chargerOverrides: JSON.parse(localStorage.getItem('ev_overrides') || '{}'),
   incentives: [],
+  homeCharging: (() => {
+    try {
+      const s = localStorage.getItem('ev_home_charging');
+      return s ? JSON.parse(s) : {level:'l2', defaultKwh:0.14, monthlyFixed:0, tou:[]};
+    } catch(e) { return {level:'l2', defaultKwh:0.14, monthlyFixed:0, tou:[]}; }
+  })(),
   clipboard: null,   // { pricing, parking, sourceNetwork, sourceKw, sourceName, copiedAt }
   liveSession: null,   // { startTime, intervalId, baseResult }
   autoCalc: false,
@@ -1665,6 +1838,7 @@ function saveSettings() {
       localStorage.setItem('ev_fb_config', raw);
       initFirebase();
   initIncentives();
+  initHomeCharging();
   updateNoChargerNudge();
   initMobileFilterBtn();
       showToast('Firebase config updated');
@@ -1835,6 +2009,8 @@ function buildNetworkFilter(chargers) {
     mSel.innerHTML = sel.innerHTML;
     mSel.value = S.filters.network || '';
   }
+  // Sync to inline mobile filter strip
+  syncMfsNetworks(S.networkSet);
 }
 
 // ═══════════════════════════════════════════════
@@ -2123,19 +2299,33 @@ function makeMarkerIcon(charger, selected, pricingOverride) {
     const crownHtml = isCheapest ? '<div style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-size:11px;line-height:1">👑</div>' : '';
     const caretCls = selected ? 'selected' : isCommunity ? 'community' : isEst ? 'estimated' : '';
 
+    // Speed badge: show AC/DC and kW on the left side
+    const speedType = level === 3 ? 'DC' : 'AC';
+    const speedColor = level === 3 ? '#00e87a' : '#4b9fff';
+    const kwDisplay = kw > 0 ? kw + 'kW' : (level === 3 ? 'DC' : 'AC');
+    // Rate line: $/kWh or $/hr
+    const rateDisplay = pricing.kwh > 0 ? '$'+pricing.kwh.toFixed(2)+'/kWh'
+                      : pricing.hr > 0 ? '$'+pricing.hr.toFixed(2)+'/hr' : '';
+
     const html = `<div class="price-marker">
       <div class="price-marker-pill ${cls}${isCheapest?' cheapest':''}${selected?' selected':''}">
         ${crownHtml}
         ${communityDot}
-        <div class="price-marker-rate ${cls}">${costLabel}</div>
-        <div class="price-marker-kw">${sublabel || (kw > 0 ? kw+'kW' : (level===3?'DC':'AC'))}</div>
-        <div class="price-marker-net">${netShort}</div>
+        <div class="pm-speed" style="border-color:${speedColor};color:${speedColor}">
+          <div style="font-size:8px;font-weight:900;line-height:1">${speedType}</div>
+          <div style="font-size:7px;line-height:1;margin-top:1px;opacity:.85">${kwDisplay}</div>
+        </div>
+        <div class="pm-info">
+          <div class="price-marker-rate ${cls}">${costLabel}</div>
+          ${rateDisplay ? `<div class="pm-rate-line">${rateDisplay}</div>` : ''}
+          <div class="price-marker-net">${netShort}</div>
+        </div>
       </div>
       <div class="price-marker-caret ${caretCls}"></div>
     </div>`;
 
-    const w = Math.max(56, costLabel.length * 8 + 18);
-    return L.divIcon({ html, className:'', iconSize:[w, 48], iconAnchor:[w/2, 48] });
+    const w = Math.max(80, costLabel.length * 7 + 52);
+    return L.divIcon({ html, className:'', iconSize:[w, 52], iconAnchor:[w/2, 52] });
   }
 
   // Standard dot/network icon
@@ -2380,11 +2570,37 @@ async function searchLocation() {
   } catch(e) { showToast('Search failed'); }
 }
 
+let _userLocationMarker = null;
+let _userLocationWatchId = null;
+
 function locateMe() {
   if (!navigator.geolocation) return showToast('Geolocation not supported');
   navigator.geolocation.getCurrentPosition(pos => {
-    S.map.setView([pos.coords.latitude, pos.coords.longitude], 13);
+    placeUserMarker(pos.coords.latitude, pos.coords.longitude);
+    S.map.setView([pos.coords.latitude, pos.coords.longitude], 14);
+    showToast('📍 Location found');
   }, () => showToast('Location access denied'));
+  // Also watch for updates
+  if (_userLocationWatchId) navigator.geolocation.clearWatch(_userLocationWatchId);
+  _userLocationWatchId = navigator.geolocation.watchPosition(pos => {
+    placeUserMarker(pos.coords.latitude, pos.coords.longitude);
+  }, null, {enableHighAccuracy:true, maximumAge:10000});
+}
+
+function placeUserMarker(lat, lng) {
+  const icon = L.divIcon({
+    html: `<div style="position:relative;width:20px;height:20px">
+      <div style="position:absolute;inset:0;background:rgba(59,130,246,.25);border-radius:50%;animation:userPulse 2s ease-out infinite"></div>
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:12px;height:12px;background:#3b82f6;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>
+    </div>`,
+    className:'', iconSize:[20,20], iconAnchor:[10,10]
+  });
+  if (_userLocationMarker) {
+    _userLocationMarker.setLatLng([lat, lng]);
+  } else {
+    _userLocationMarker = L.marker([lat, lng], {icon, zIndexOffset:1000}).addTo(S.map);
+    _userLocationMarker.bindPopup('<div style="font-family:var(--mo);font-size:11px;padding:4px 6px;text-align:center"><b>You are here</b><br><span style="color:#3b82f6;font-size:10px">GPS location</span></div>', {maxWidth:140});
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -2438,30 +2654,16 @@ function estimatePricing(charger) {
 
 function chargeRateKw(vehicleMaxKw, chargerKw, soc) {
   const peak = Math.min(vehicleMaxKw, chargerKw);
-  const isDCFC = chargerKw > 22; // Common threshold: Level 2 is usually <= 22kW
-
-  // --- Level 2 Logic ---
+  const isDCFC = chargerKw > 22;
   if (!isDCFC) {
     if (soc <= 0.95) {
-      // Per your request: Maintain peak, but floor at 7.2kW between 0.80 and 0.95
       return (soc > 0.80) ? Math.max(peak, 7.2) : peak;
     }
-    // Final balancing phase after 95%
     return Math.max(peak * (1 - (soc - 0.95) / 0.05), 1.4);
   }
-
-  // --- DC Fast Charging Logic (Post-80%) ---
   if (soc <= 0.80) return peak;
-
-  /**
-   * Realistic DC Taper: Most EVs drop to ~30-40% of peak at 80%,
-   * then slide down to ~10-15% by 90%.
-   * Formula: Rate = Peak * (BaseTaper ^ Power) + BalancingFloor
-   */
   const dcfcTaper = Math.pow(1 - (soc - 0.80) / 0.20, 1.5);
   const realisticRate = (peak * 0.4 * dcfcTaper) + 7.2;
-
-  // Ensure it never exceeds the peak and has a floor for cell balancing
   return Math.min(peak, Math.max(realisticRate, 3.0));
 }
 
@@ -3088,9 +3290,10 @@ function updateParkingSummary() {
 function toggleAcc(name) {
   const body = document.getElementById(name+'Body');
   const chev = document.getElementById(name+'Chev');
+  if (!body) return;
   const open = body.style.display !== 'none';
   body.style.display = open ? 'none' : '';
-  chev.classList.toggle('open', !open);
+  if (chev) chev.classList.toggle('open', !open);
 }
 
 // ─── Calculate ───────────────────────────────
@@ -3117,6 +3320,8 @@ function calculate() {
     S.result = result;
     renderResult(result);
     document.getElementById('resultPlaceholder').style.display = 'none';
+    // Update home comparison if visible
+    if (_activeTab === 'home') renderHomeResult();
   } catch(e) {
     console.error('Calc error:', e);
   }
@@ -3851,15 +4056,28 @@ const _isMobile = () => window.innerWidth <= 768;
 
 function switchTab(tab) {
   _activeTab = tab;
-  document.getElementById('tabSession').classList.toggle('active', tab === 'session');
-  document.getElementById('tabCharger').classList.toggle('active', tab === 'charger');
+  ['session','charger','home'].forEach(t => {
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1))?.classList.toggle('active', t === tab);
+  });
 
   if (_isMobile()) {
-    // Mobile: show only the active panel
     document.getElementById('panelSession').classList.toggle('sb-panel-hidden', tab !== 'session');
     document.getElementById('panelCharger').classList.toggle('sb-panel-hidden', tab !== 'charger');
+    document.getElementById('panelHome').classList.toggle('sb-panel-hidden', tab !== 'home');
   }
-  // Desktop: both panels always visible (CSS grid handles it)
+  // Desktop: session + charger always visible; home replaces charger in 3rd column
+  if (!_isMobile()) {
+    const homePanel = document.getElementById('panelHome');
+    const chargerPanel = document.getElementById('panelCharger');
+    if (tab === 'home') {
+      homePanel.classList.remove('sb-panel-hidden');
+      chargerPanel.classList.add('sb-panel-hidden');
+    } else {
+      homePanel.classList.add('sb-panel-hidden');
+      chargerPanel.classList.remove('sb-panel-hidden');
+    }
+  }
+  if (tab === 'home') renderHomeResult();
 }
 
 function updateChargerTabDot() {
@@ -3875,21 +4093,250 @@ function updateNoChargerNudge() {
 
 // On resize, reset panel visibility for desktop (remove mobile hide classes)
 window.addEventListener('resize', () => {
-  if (!_isMobile()) {
-    document.getElementById('panelSession')?.classList.remove('sb-panel-hidden');
-    document.getElementById('panelCharger')?.classList.remove('sb-panel-hidden');
-  } else {
-    // Re-apply active tab on mobile
-    switchTab(_activeTab);
-  }
+  switchTab(_activeTab);
 });
 
 // Init: on mobile, hide charger panel by default
 document.addEventListener('DOMContentLoaded', () => {
   if (_isMobile()) {
     document.getElementById('panelCharger')?.classList.add('sb-panel-hidden');
+    document.getElementById('panelHome')?.classList.add('sb-panel-hidden');
+  } else {
+    document.getElementById('panelHome')?.classList.add('sb-panel-hidden');
   }
 });
+
+// ═══════════════════════════════════════════════
+// MANUAL REFRESH
+// ═══════════════════════════════════════════════
+
+function manualRefresh() {
+  const btn = document.getElementById('tabRefresh');
+  if (btn) { btn.style.color = 'var(--a)'; setTimeout(() => btn.style.color = '', 600); }
+  // Re-load Firebase pricing for selected charger
+  if (S.selectedCharger) {
+    const id = String(S.selectedCharger.ID);
+    delete S.fbCache[id]; // bust cache so it fetches fresh
+    selectCharger(S.selectedCharger, S.markerMap[S.selectedCharger.ID]);
+    showToast('↻ Refreshed charger data');
+  }
+  // Refresh price labels on map
+  updatePriceLabels();
+  scheduleAutoCalc();
+}
+
+// ═══════════════════════════════════════════════
+// HOME CHARGING
+// ═══════════════════════════════════════════════
+
+const HOME_LEVEL_KW = { l1: 1.4, l2: 7.2, l2fast: 11.5, l2max: 19.2 };
+
+// S.homeCharging is pre-loaded in state; this just populates the UI
+function initHomeCharging() {
+  // Ensure tou array exists (guard for old saved data)
+  if (!S.homeCharging) S.homeCharging = {level:'l2', defaultKwh:0.14, monthlyFixed:0, tou:[]};
+  if (!Array.isArray(S.homeCharging.tou)) S.homeCharging.tou = [];
+  renderHomeSettings();
+}
+
+function saveHomeSettings() {
+  localStorage.setItem('ev_home_charging', JSON.stringify(S.homeCharging));
+  showToast('🏠 Home settings saved');
+  renderHomeResult();
+}
+
+function syncHomeCharging() {
+  if (!S.homeCharging) S.homeCharging = {level:'l2', defaultKwh:0.14, monthlyFixed:0, tou:[]};
+  S.homeCharging.level = document.getElementById('homeLevel')?.value || 'l2';
+  S.homeCharging.defaultKwh = parseFloat(document.getElementById('homeDefaultKwh')?.value) || 0.14;
+  S.homeCharging.monthlyFixed = parseFloat(document.getElementById('homeMonthlyFixed')?.value) || 0;
+  renderHomeResult();
+  updateHomeRateSummary();
+}
+
+function renderHomeSettings() {
+  const h = S.homeCharging;
+  const lvlEl = document.getElementById('homeLevel');
+  if (lvlEl) lvlEl.value = h.level || 'l2';
+  const kwEl = document.getElementById('homeDefaultKwh');
+  if (kwEl) kwEl.value = h.defaultKwh ?? 0.14;
+  const fixEl = document.getElementById('homeMonthlyFixed');
+  if (fixEl) fixEl.value = h.monthlyFixed ?? 0;
+  renderHomeTouTable();
+  updateHomeRateSummary();
+}
+
+function updateHomeRateSummary() {
+  const el = document.getElementById('homeRateSummary');
+  if (!el) return;
+  const h = S.homeCharging;
+  let txt = '$' + (h.defaultKwh||0).toFixed(3) + '/kWh';
+  if ((h.tou||[]).length) txt += ' + ' + h.tou.length + ' TOU';
+  el.textContent = txt;
+}
+
+function addHomeTou() {
+  if (!S.homeCharging) S.homeCharging = {level:'l2', defaultKwh:0.14, monthlyFixed:0, tou:[]};
+  if (!Array.isArray(S.homeCharging.tou)) S.homeCharging.tou = [];
+  S.homeCharging.tou.push({label:'Off-Peak', start:'22:00', end:'06:00', kwh:0.08});
+  renderHomeTouTable();
+  updateHomeRateSummary();
+}
+
+function removeHomeTou(i) {
+  S.homeCharging.tou.splice(i, 1);
+  renderHomeTouTable();
+  renderHomeResult();
+}
+
+function updateHomeTou(i, field, val) {
+  S.homeCharging.tou[i][field] = field === 'kwh' ? parseFloat(val)||0 : val;
+  // Update preview span only
+  if (field === 'start' || field === 'end') {
+    const prevId = field === 'start' ? 'htStartPrev'+i : 'htEndPrev'+i;
+    const el = document.getElementById(prevId);
+    if (el) el.innerHTML = fmt12h(val);
+  }
+  renderHomeResult();
+  updateHomeRateSummary();
+}
+
+function renderHomeTouTable() {
+  const el = document.getElementById('homeTouTable');
+  if (!el) return;
+  const tou = S.homeCharging.tou || [];
+  if (!tou.length) {
+    el.innerHTML = '<div style="font-size:10px;color:var(--m);text-align:center;padding:4px 0">No intervals — flat rate used</div>';
+    return;
+  }
+  el.innerHTML = tou.map((iv, i) => `
+    <div class="tou-card" id="htCard${i}">
+      <div class="tou-card-header">
+        <input class="inp-sm tou-card-label" value="${(iv.label||'').replace(/"/g,'&quot;')}"
+          placeholder="Label" oninput="updateHomeTou(${i},'label',this.value)" style="flex:1;font-weight:600"/>
+        <button class="del-btn" onclick="removeHomeTou(${i})">✕</button>
+      </div>
+      <div class="tou-time-row">
+        <div>
+          <div class="tou-field-label">Start</div>
+          <div class="tou-time-preview" id="htStartPrev${i}" style="color:var(--a)">${fmt12h(iv.start||'22:00')}</div>
+          <input class="inp-sm" type="time" value="${iv.start||'22:00'}" oninput="updateHomeTou(${i},'start',this.value)" style="width:100%"/>
+        </div>
+        <div>
+          <div class="tou-field-label">End</div>
+          <div class="tou-time-preview" id="htEndPrev${i}" style="color:var(--d)">${fmt12h(iv.end||'06:00')}</div>
+          <input class="inp-sm" type="time" value="${iv.end||'06:00'}" oninput="updateHomeTou(${i},'end',this.value)" style="width:100%"/>
+        </div>
+      </div>
+      <div>
+        <div class="tou-field-label">Rate $/kWh</div>
+        <input class="inp-sm" type="number" min="0" step="0.001" value="${iv.kwh??0.08}"
+          oninput="updateHomeTou(${i},'kwh',this.value)" style="width:100%"/>
+      </div>
+    </div>`).join('');
+}
+
+function getHomePricing() {
+  const h = S.homeCharging || {defaultKwh:0.14, hr:0, tou:[], minFee:0, minThresh:0};
+  return {
+    kwh: h.defaultKwh || 0.14,
+    hr: 0,
+    tou: (h.tou || []).map(t => ({...t})),
+    minFee: 0,
+    minThresh: 0,
+    _source: 'home',
+    source: 'home',
+  };
+}
+
+function renderHomeResult() {
+  // Ensure homeCharging is always initialized before any access
+  if (!S.homeCharging) S.homeCharging = {level:'l2', defaultKwh:0.14, monthlyFixed:0, tou:[]};
+  if (!Array.isArray(S.homeCharging.tou)) S.homeCharging.tou = [];
+  const el = document.getElementById('homeResult');
+  const statusEl = document.getElementById('homeCalcStatus');
+  if (!el) return;
+  if (!S.vehicle) {
+    el.innerHTML = '<div style="font-size:10px;color:var(--m);text-align:center;padding:6px">Select a vehicle first</div>';
+    return;
+  }
+
+  const homeKw = HOME_LEVEL_KW[S.homeCharging?.level || 'l2'];
+  const homePricing = getHomePricing();
+
+  // Run home calc with same session params
+  let homeResult;
+  try {
+    homeResult = runCalc(
+      S.vehicle, homeKw, homePricing, {enabled:false},
+      S.mode, S.mode === 'time' ? getDurationInMinutes() : 0,
+      S.socStart ?? 20, S.socEnd ?? 80,
+      0, getStartHour(), 0
+    );
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:10px;color:var(--w)">Calc error</div>';
+    return;
+  }
+
+  const fmt2 = n => '$' + n.toFixed(2);
+  const fmtMin = m => m >= 60 ? Math.floor(m/60)+'h '+Math.round(m%60)+'m' : Math.round(m)+'m';
+  const effRate = homeResult.totalKwh > 0 ? (homeResult.total / homeResult.totalKwh).toFixed(3) : '—';
+
+  // Compare with selected charger if we have one
+  let compareHtml = '';
+  if (S.selectedCharger && S.result) {
+    const pub = S.result;
+    const diff = pub.total - homeResult.total;
+    const pct = homeResult.total > 0 ? Math.abs(diff / homeResult.total * 100).toFixed(0) : '—';
+    const cheaper = diff > 0.01 ? 'home' : diff < -0.01 ? 'public' : 'same';
+    compareHtml = `
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--b)">
+        <div style="font-size:9px;color:var(--m);font-family:var(--mo);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px">vs Current Public Charger</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div style="background:var(--bg);border-radius:5px;padding:6px;text-align:center">
+            <div style="font-size:9px;color:var(--m);font-family:var(--mo)">🏠 HOME</div>
+            <div style="font-size:18px;font-weight:700;color:${cheaper==='home'?'var(--a)':'var(--t)'};font-family:var(--mo)">${fmt2(homeResult.total)}</div>
+            <div style="font-size:9px;color:var(--m)">${fmtMin(homeResult.duration)}</div>
+          </div>
+          <div style="background:var(--bg);border-radius:5px;padding:6px;text-align:center">
+            <div style="font-size:9px;color:var(--m);font-family:var(--mo)">📍 PUBLIC</div>
+            <div style="font-size:18px;font-weight:700;color:${cheaper==='public'?'var(--a)':'var(--t)'};font-family:var(--mo)">${fmt2(pub.total)}</div>
+            <div style="font-size:9px;color:var(--m)">${fmtMin(pub.duration)}</div>
+          </div>
+        </div>
+        <div style="margin-top:6px;text-align:center;font-size:10px;font-family:var(--mo);color:${cheaper==='same'?'var(--m)':cheaper==='home'?'var(--a)':'var(--w)'}">
+          ${cheaper==='same' ? '≈ Same cost' : cheaper==='home' ? `🏠 Home saves ${fmt2(Math.abs(diff))} (${pct}%)` : `📍 Public cheaper by ${fmt2(Math.abs(diff))} (${pct}%)`}
+        </div>
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div style="font-size:9px;color:var(--m);font-family:var(--mo);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">
+      🏠 Home · ${HOME_LEVEL_KW[S.homeCharging?.level||'l2']}kW · $${effRate}/kWh effective
+    </div>
+    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+      <div style="font-size:26px;font-weight:700;color:var(--a);font-family:var(--mo)">${fmt2(homeResult.total)}</div>
+      <div style="font-size:11px;color:var(--m2)">${homeResult.totalKwh.toFixed(2)} kWh · ${fmtMin(homeResult.duration)}</div>
+    </div>
+    <div style="font-size:9px;color:var(--m);margin-top:3px">Rate: $${homePricing.kwh.toFixed(3)}/kWh default${(homePricing.tou||[]).length?' + '+homePricing.tou.length+' TOU intervals':''}</div>
+    ${compareHtml}`;
+
+  if (statusEl) statusEl.textContent = S.selectedCharger ? '← vs ' + getChargerNetwork(S.selectedCharger) : '';
+}
+
+// Sync mfsNetwork in mobile filter strip with desktop fNetwork
+function syncMfsNetworks(networks) {
+  const sel = document.getElementById('mfsNetwork');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Networks</option>';
+  [...networks].sort().forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n; opt.textContent = n;
+    if (n === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
 
 // ═══════════════════════════════════════════════
 // MISC UI
