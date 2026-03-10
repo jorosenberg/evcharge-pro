@@ -1253,6 +1253,27 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
             </div>
           </div>
 
+          <!-- Home Incentives Accordion -->
+          <div class="acc-header" onclick="toggleAcc('homeIncentive')">
+            <div class="acc-title">🎁 Incentives &amp; Rebates</div>
+            <div class="acc-right">
+              <span class="acc-summary" id="homeIncentiveSummary"></span>
+              <span class="acc-chevron" id="homeIncentiveChev">▶</span>
+            </div>
+          </div>
+          <div id="homeIncentiveBody" style="display:none">
+            <div class="acc-body">
+              <div style="font-size:10px;color:var(--m2);margin-bottom:8px;line-height:1.5">
+                Add utility rebates that apply to home charging — off-peak discounts, EVSE installation rebates, and more.
+              </div>
+              <button class="add-row-btn" onclick="showHomeIncentiveLibrary()" style="margin-bottom:8px;height:28px;font-size:11px;border-style:solid;border-color:rgba(0,232,122,.3);color:var(--a)">
+                Browse programs…
+              </button>
+              <div id="homeIncentiveList"></div>
+              <button class="add-row-btn" onclick="addCustomHomeIncentive()" style="margin-top:4px">+ Add custom incentive</button>
+            </div>
+          </div>
+
           <!-- Save home settings -->
           <div class="sb-sec">
             <button class="save-btn" style="width:100%" onclick="saveHomeSettings()">
@@ -1334,7 +1355,7 @@ input,select,button,textarea{font-family:var(--f);font-size:12px}
 </div>
 
 <!-- Incentive Library Modal -->
-<div class="modal-overlay" id="incentiveModal" style="display:none" onclick="if(event.target===this)closeIncentiveModal()">
+<div class="modal-overlay" id="incentiveModal" style="display:none" onclick="if(event.target===this){ if(this.dataset.mode==='home') closeHomeIncentiveModal(); else closeIncentiveModal(); }">
   <div class="modal-box" style="max-width:500px">
     <div class="modal-title">Incentive &amp; Rebate Programs</div>
     <div style="font-size:11px;color:var(--m2);margin-bottom:12px">
@@ -1617,6 +1638,12 @@ const S = {
       const s = localStorage.getItem('ev_home_charging');
       return s ? JSON.parse(s) : {level:'l2', defaultKwh:0.14, monthlyFixed:0, tou:[]};
     } catch(e) { return {level:'l2', defaultKwh:0.14, monthlyFixed:0, tou:[]}; }
+  })(),
+  homeIncentives: (() => {
+    try {
+      const s = localStorage.getItem('ev_home_incentives');
+      return s ? JSON.parse(s) : [];
+    } catch(e) { return []; }
   })(),
   clipboard: null,   // { pricing, parking, sourceNetwork, sourceKw, sourceName, copiedAt }
   liveSession: null,   // { startTime, intervalId, baseResult }
@@ -2479,7 +2506,8 @@ function buildPopup(c) {
   const op = getChargerOperator(c);
   const network = op.name;
   const networkUrl = op.url;
-  const kw = getChargerKw(c);
+  // Use getEffectiveChargerKw so community/override kW is respected
+  const kw = getEffectiveChargerKw(c);
   const level = OCM_LEVEL[getChargerLevel(c)] || 'L2';
   const connectors = getChargerConnectors(c).slice(0,3).join(', ');
   const address = [c.AddressInfo?.Title, c.AddressInfo?.Town, c.AddressInfo?.StateOrProvince].filter(Boolean).join(', ');
@@ -2515,7 +2543,10 @@ function buildPopup(c) {
     </div>
     ${c.UsageType?.IsMembershipRequired ? '<div style="font-size:10px;color:var(--w);margin-bottom:4px">🔑 Membership required</div>' : ''}
     ${c.UsageType?.IsPayAtLocation ? '<div style="font-size:10px;color:var(--info);margin-bottom:4px">💳 Pay at location</div>' : ''}
-    <button class="popup-btn" onclick="selectChargerById(${c.ID})">Use This Charger →</button>
+    ${networkUrl
+      ? `<a href="${networkUrl}" target="_blank" rel="noopener" class="popup-btn" style="display:block;text-align:center;text-decoration:none;line-height:30px">🌐 Network Website ↗</a>`
+      : `<div style="font-size:10px;color:var(--m);text-align:center;padding:6px 0">No network website available</div>`
+    }
   `;
   return container;
 }
@@ -3716,6 +3747,79 @@ const INCENTIVE_LIBRARY = [
     applies: 'home',
   },
   {
+    id: 'pge_ev2a_home',
+    name: 'PG&E EV2-A Home Off-Peak',
+    provider: 'PG&E',
+    region: 'Northern/Central California',
+    url: 'https://www.pge.com/en/account/rate-plans/rate-plan-options/electric-vehicle-rate-plans.html',
+    type: 'per_kwh_window',
+    rebatePerKwh: 0.15,
+    windowStart: 23,
+    windowEnd: 7,
+    windowLabel: '11pm–7am',
+    desc: 'Super off-peak rate ~$0.15/kWh cheaper than peak under EV2-A plan. Home charging only.',
+    note: 'Requires switching to EV2-A rate plan.',
+    applies: 'home',
+  },
+  {
+    id: 'coned_home_offpeak',
+    name: 'Con Ed SmartCharge NY — Off-Peak (Home)',
+    provider: 'Con Edison',
+    region: 'NYC & Westchester, NY',
+    url: 'https://www.coned.com/en/save-money/rebates-incentives-tax-credits/rebates-incentives-tax-credits-for-residential-customers/electric-vehicle-rewards',
+    type: 'per_kwh_window',
+    rebatePerKwh: 0.10,
+    windowStart: 0,
+    windowEnd: 8,
+    windowLabel: '12am–8am',
+    desc: 'Earn $0.10/kWh for home charging midnight–8am. Must enroll at scny.ev.energy.',
+    note: 'Requires enrollment. Home charger must be enrolled device.',
+    applies: 'home',
+  },
+  {
+    id: 'evse_federal_tax_credit',
+    name: 'Federal EV Charger Tax Credit (30C)',
+    provider: 'IRS / Federal',
+    region: 'United States',
+    url: 'https://www.irs.gov/credits-deductions/alternative-fuel-vehicle-refueling-property-credit',
+    type: 'flat_bonus',
+    bonusAmount: 1000,
+    bonusPeriod: 'one-time tax credit (up to 30% of cost)',
+    desc: 'Federal 30C tax credit: up to 30% of EVSE equipment + installation cost, max $1,000 for residential. Available through 2032.',
+    note: 'Does not reduce per-session cost. Consult a tax professional.',
+    applies: 'home',
+  },
+  {
+    id: 'pseg_evcharge',
+    name: 'PSE&G EV Charging Program',
+    provider: 'PSE&G',
+    region: 'New Jersey',
+    url: 'https://nj.pseg.com/home/products/electric_vehicles',
+    type: 'per_kwh_window',
+    rebatePerKwh: 0.07,
+    windowStart: 22,
+    windowEnd: 6,
+    windowLabel: '10pm–6am',
+    desc: 'Off-peak EV rate offers ~$0.07/kWh savings for overnight home charging under PSE&G EV rate plans.',
+    note: 'Requires EV rate enrollment.',
+    applies: 'home',
+  },
+  {
+    id: 'eversource_ev_offpeak',
+    name: 'Eversource EV Off-Peak Discount',
+    provider: 'Eversource',
+    region: 'CT / MA / NH',
+    url: 'https://www.eversource.com/content/ct-c/residential/save-money-energy/clean-energy-options/electric-vehicles/ev-charging-options',
+    type: 'per_kwh_window',
+    rebatePerKwh: 0.09,
+    windowStart: 21,
+    windowEnd: 7,
+    windowLabel: '9pm–7am',
+    desc: 'Eversource EV off-peak rate saves ~$0.09/kWh for home charging outside peak hours.',
+    note: 'Requires EV Time-of-Use rate enrollment.',
+    applies: 'home',
+  },
+  {
     id: 'custom',
     name: 'Custom incentive',
     provider: 'Custom',
@@ -4310,11 +4414,15 @@ function initHomeCharging() {
   // Ensure tou array exists (guard for old saved data)
   if (!S.homeCharging) S.homeCharging = {level:'l2', defaultKwh:0.14, monthlyFixed:0, tou:[]};
   if (!Array.isArray(S.homeCharging.tou)) S.homeCharging.tou = [];
+  if (!Array.isArray(S.homeIncentives)) S.homeIncentives = [];
   renderHomeSettings();
+  renderHomeIncentiveList();
+  updateHomeIncentiveSummary();
 }
 
 function saveHomeSettings() {
   localStorage.setItem('ev_home_charging', JSON.stringify(S.homeCharging));
+  saveHomeIncentives();
   showToast('🏠 Home settings saved');
   renderHomeResult();
 }
@@ -4484,6 +4592,24 @@ function renderHomeResult() {
       </div>`;
   }
 
+  // Home incentive savings
+  const homeStartHour = getStartHour();
+  const homeInc = calcHomeIncentiveSavings(homeResult, homeStartHour);
+  const netHomeCost = Math.max(0, homeResult.total - homeInc.totalSavings);
+  const incHtml = homeInc.breakdownItems.length ? `
+    <div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--b)">
+      <div style="font-size:9px;color:var(--m);font-family:var(--mo);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Incentive Savings</div>
+      ${homeInc.breakdownItems.map(b => `
+        <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+          <span style="color:var(--m2)">${b.name}</span>
+          <span style="color:var(--a);font-family:var(--mo)">-${fmt2(b.savings)}</span>
+        </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-top:4px;padding-top:4px;border-top:1px solid var(--b)">
+        <span>Net after incentives</span>
+        <span style="color:var(--a);font-family:var(--mo)">${fmt2(netHomeCost)}</span>
+      </div>
+    </div>` : '';
+
   el.innerHTML = `
     <div style="font-size:9px;color:var(--m);font-family:var(--mo);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">
       🏠 Home · ${HOME_LEVEL_KW[S.homeCharging?.level||'l2']}kW · $${effRate}/kWh effective
@@ -4493,6 +4619,7 @@ function renderHomeResult() {
       <div style="font-size:11px;color:var(--m2)">${homeResult.totalKwh.toFixed(2)} kWh · ${fmtMin(homeResult.duration)}</div>
     </div>
     <div style="font-size:9px;color:var(--m);margin-top:3px">Rate: $${homePricing.kwh.toFixed(3)}/kWh default${(homePricing.tou||[]).length?' + '+homePricing.tou.length+' TOU intervals':''}</div>
+    ${incHtml}
     ${compareHtml}`;
 
   if (statusEl) statusEl.textContent = S.selectedCharger ? '← vs ' + getChargerNetwork(S.selectedCharger) : '';
@@ -4510,6 +4637,213 @@ function syncMfsNetworks(networks) {
     if (n === cur) opt.selected = true;
     sel.appendChild(opt);
   });
+}
+
+// ═══════════════════════════════════════════════
+// HOME INCENTIVES
+// ═══════════════════════════════════════════════
+
+function saveHomeIncentives() {
+  localStorage.setItem('ev_home_incentives', JSON.stringify(S.homeIncentives));
+}
+
+function addHomeIncentiveFromLibrary(libId) {
+  const template = INCENTIVE_LIBRARY.find(x => x.id === libId);
+  if (!template) return;
+  if (S.homeIncentives.some(x => x.libId === libId)) {
+    showToast('That program is already added'); return;
+  }
+  const inc = { ...template, libId: libId, enabled: true, id: Date.now() };
+  S.homeIncentives.push(inc);
+  saveHomeIncentives();
+  renderHomeIncentiveList();
+  updateHomeIncentiveSummary();
+  renderHomeResult();
+  closeHomeIncentiveModal();
+  showToast('Added: ' + template.name);
+}
+
+function addCustomHomeIncentive() {
+  if (!Array.isArray(S.homeIncentives)) S.homeIncentives = [];
+  const inc = {
+    libId: 'home_custom_' + Date.now(),
+    id: Date.now(),
+    name: 'My Home Incentive',
+    provider: '',
+    type: 'per_kwh_window',
+    rebatePerKwh: 0.10,
+    windowStart: 0,
+    windowEnd: 8,
+    windowLabel: '',
+    desc: '',
+    enabled: true,
+    custom: true,
+  };
+  S.homeIncentives.push(inc);
+  saveHomeIncentives();
+  renderHomeIncentiveList();
+  updateHomeIncentiveSummary();
+  const body = document.getElementById('homeIncentiveBody');
+  if (body && body.style.display === 'none') {
+    body.style.display = '';
+    const chev = document.getElementById('homeIncentiveChev');
+    if (chev) chev.classList.add('open');
+  }
+  renderHomeResult();
+}
+
+function removeHomeIncentive(id) {
+  S.homeIncentives = S.homeIncentives.filter(x => x.id !== id);
+  saveHomeIncentives();
+  renderHomeIncentiveList();
+  updateHomeIncentiveSummary();
+  renderHomeResult();
+}
+
+function toggleHomeIncentive(id, enabled) {
+  const inc = S.homeIncentives.find(x => x.id === id);
+  if (inc) { inc.enabled = enabled; saveHomeIncentives(); updateHomeIncentiveSummary(); renderHomeResult(); }
+}
+
+function updateHomeIncentiveField(id, field, val) {
+  const inc = S.homeIncentives.find(x => x.id === id);
+  if (inc) {
+    inc[field] = field === 'rebatePerKwh' ? parseFloat(val)||0
+               : (field === 'windowStart' || field === 'windowEnd') ? parseFloat(val)||0 : val;
+    saveHomeIncentives();
+    updateHomeIncentiveSummary();
+    renderHomeResult();
+  }
+}
+
+function renderHomeIncentiveList() {
+  const el = document.getElementById('homeIncentiveList');
+  if (!el) return;
+  if (!S.homeIncentives.length) {
+    el.innerHTML = '<div style="font-size:10px;color:var(--m);text-align:center;padding:6px 0">No incentives added yet</div>';
+    return;
+  }
+  el.innerHTML = S.homeIncentives.map(inc => {
+    const isWindow = inc.type === 'per_kwh_window';
+    const isBonus  = inc.type === 'flat_bonus';
+    return `
+    <div class="incentive-card">
+      <div class="incentive-card-header">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
+            <label class="tog" style="transform:scale(.8);transform-origin:left">
+              <input type="checkbox" ${inc.enabled?'checked':''} onchange="toggleHomeIncentive(${inc.id},this.checked)"/>
+              <div class="tog-track"></div><div class="tog-thumb"></div>
+            </label>
+            ${inc.custom
+              ? `<input class="inp-sm" value="${(inc.name||'').replace(/"/g,'&quot;')}" oninput="updateHomeIncentiveField(${inc.id},'name',this.value)" style="flex:1;font-weight:600;font-size:11px"/>`
+              : `<span class="incentive-card-name">${inc.name}</span>`}
+          </div>
+          ${inc.provider ? `<div style="font-size:9px;color:var(--m);font-family:var(--mo)">${inc.provider}${inc.region?' · '+inc.region:''}</div>` : ''}
+        </div>
+        <button class="del-btn" onclick="removeHomeIncentive(${inc.id})" style="font-size:11px">✕</button>
+      </div>
+      ${isBonus ? `
+        <div class="incentive-card-desc" style="color:var(--w)">ℹ ${inc.desc}</div>
+        <div style="font-size:10px;font-family:var(--mo);color:var(--a)">+$${inc.bonusAmount} ${inc.bonusPeriod||''} (billing credit)</div>
+      ` : `
+        <div class="incentive-fields">
+          <div>
+            <div class="tou-field-label">Rebate $/kWh</div>
+            <input class="inp-sm" type="number" min="0" step="0.01" value="${inc.rebatePerKwh||0}"
+              oninput="updateHomeIncentiveField(${inc.id},'rebatePerKwh',this.value)" style="width:100%"/>
+          </div>
+          ${isWindow ? `
+          <div>
+            <div class="tou-field-label">Window start (hr 0–23)</div>
+            <input class="inp-sm" type="number" min="0" max="23" step="1" value="${inc.windowStart||0}"
+              oninput="updateHomeIncentiveField(${inc.id},'windowStart',this.value)" style="width:100%"/>
+          </div>
+          <div>
+            <div class="tou-field-label">Window end (hr 0–23)</div>
+            <input class="inp-sm" type="number" min="0" max="23" step="1" value="${inc.windowEnd||8}"
+              oninput="updateHomeIncentiveField(${inc.id},'windowEnd',this.value)" style="width:100%"/>
+          </div>` : `
+          <div>
+            <div class="tou-field-label">Type</div>
+            <div style="font-size:10px;color:var(--t);padding-top:5px">All kWh</div>
+          </div>`}
+        </div>
+        ${inc.note ? `<div style="font-size:9px;color:var(--m2);margin-top:5px;font-style:italic">${inc.note}</div>` : ''}
+        ${inc.url ? `<a href="${inc.url}" target="_blank" rel="noopener" style="font-size:9px;color:var(--a);margin-top:3px;display:block">Learn more ↗</a>` : ''}
+      `}
+    </div>`;
+  }).join('');
+}
+
+function updateHomeIncentiveSummary() {
+  const el = document.getElementById('homeIncentiveSummary');
+  if (!el) return;
+  const active = (S.homeIncentives||[]).filter(x => x.enabled && x.type !== 'flat_bonus');
+  el.textContent = active.length ? active.length + ' active' : '';
+}
+
+function calcHomeIncentiveSavings(result, startHour) {
+  if (!S.homeIncentives?.length) return { totalSavings: 0, breakdownItems: [] };
+  const kwhPerMin = result.kwhPerMin;
+  let totalSavings = 0;
+  const breakdownItems = [];
+  S.homeIncentives.filter(x => x.enabled && x.type !== 'flat_bonus').forEach(inc => {
+    let savings = 0;
+    if (inc.type === 'per_kwh_flat') {
+      savings = result.totalKwh * (inc.rebatePerKwh || 0);
+    } else if (inc.type === 'per_kwh_window') {
+      const ws = inc.windowStart || 0;
+      const we = inc.windowEnd || 8;
+      let windowKwh = 0, el = 0;
+      while (el < result.duration) {
+        const step = Math.min(1, result.duration - el);
+        const absHour = (startHour + el / 60) % 24;
+        const inWindow = ws < we ? (absHour >= ws && absHour < we) : (absHour >= ws || absHour < we);
+        if (inWindow) windowKwh += kwhPerMin * step;
+        el += step;
+      }
+      savings = windowKwh * (inc.rebatePerKwh || 0);
+    }
+    if (savings > 0) { totalSavings += savings; breakdownItems.push({ name: inc.name, savings }); }
+  });
+  return { totalSavings, breakdownItems };
+}
+
+function showHomeIncentiveLibrary() {
+  // Reuse the main incentive library modal but filtered to home-applicable items
+  const el = document.getElementById('incentiveLibraryList');
+  if (!el) return;
+  const alreadyAdded = new Set(S.homeIncentives.map(x => x.libId));
+  const homeItems = INCENTIVE_LIBRARY.filter(x => x.id !== 'custom' && (x.applies === 'home' || x.applies === 'public_and_home' || x.applies === 'any'));
+  el.innerHTML = homeItems.map(lib => {
+    const added = alreadyAdded.has(lib.id);
+    const valueLine = lib.type === 'per_kwh_window'
+      ? `$${lib.rebatePerKwh}/kWh · ${lib.windowLabel}`
+      : lib.type === 'per_kwh_flat'
+        ? `$${lib.rebatePerKwh}/kWh all kWh`
+        : `$${lib.bonusAmount} ${lib.bonusPeriod||''}`;
+    return `
+    <div class="incentive-lib-item ${added?'already-added':''}" data-libid="${lib.id}" data-added="${added}">
+      <div class="incentive-lib-info">
+        <div class="incentive-lib-name">${lib.name}</div>
+        <div class="incentive-lib-desc">${lib.provider} · ${lib.region}</div>
+        <div class="incentive-lib-desc" style="margin-top:2px">${lib.desc}</div>
+        <div class="incentive-lib-value">${valueLine}</div>
+      </div>
+      <button class="incentive-add-btn" ${added?'disabled':''} onclick="addHomeIncentiveFromLibrary('${lib.id}')">
+        ${added ? '&#10003; Added' : '+ Add'}
+      </button>
+    </div>`;
+  }).join('');
+  document.getElementById('incentiveModal').style.display = '';
+  // Mark modal as "home mode" so close button doesn't call wrong fn
+  document.getElementById('incentiveModal').dataset.mode = 'home';
+}
+
+function closeHomeIncentiveModal() {
+  const modal = document.getElementById('incentiveModal');
+  if (modal) { modal.style.display = 'none'; modal.dataset.mode = ''; }
 }
 
 // ═══════════════════════════════════════════════
